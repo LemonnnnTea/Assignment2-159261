@@ -1,6 +1,8 @@
-
+import java.awt.event.KeyEvent;
 
 public class Game extends GameEngine{
+    level lv = new level1();
+
     public static void main(String[] args) {
 
     }
@@ -15,4 +17,18 @@ public class Game extends GameEngine{
 
     }
 
+    @Override
+    public void keyPressed(KeyEvent event) {
+
+    }
+
+    @Override
+    public void keyReleased(KeyEvent event) {
+
+    }
+
+    @Override
+    public void keyTyped(KeyEvent event) {
+
+    }
 }
