@@ -1,10 +1,15 @@
 import java.awt.event.KeyEvent;
 
 public class Game extends GameEngine{
-    level lv = new level1();
+
+    level level;
 
     public static void main(String[] args) {
+        createGame(new Game(), 60);
+    }
 
+    public void drawLevel(level Level){
+        drawImage(level.backgroundImage, 0, 0);
     }
 
     @Override
@@ -14,7 +19,20 @@ public class Game extends GameEngine{
 
     @Override
     public void paintComponent() {
+        drawLevel(level);
+        for(platform p : level.platforms){
 
+        }
+
+        for(trap t : level.traps){
+
+        }
+    }
+
+    @Override
+    public void init(){
+        setWindowSize(800, 450);
+        level = new level1(loadImage("resources/bg1.png"));
     }
 
     @Override
