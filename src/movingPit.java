@@ -1,2 +1,2 @@
-public class movingPit {
+public class movingPit  {
 }
