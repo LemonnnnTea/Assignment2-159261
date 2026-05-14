@@ -3,7 +3,12 @@ import java.awt.*;
 public class player {
     double x, y;
     int height = 50, width = 50;
-    Image img;
+    Image[] jump, left, stay;
+
+
+    int currentFrame = 0;
+    double animationTimer = 0;
+    double animationSpeed = 0.12;
 
     double velocityX, velocityY;
 
@@ -20,11 +25,13 @@ public class player {
     boolean dead = false;
 
 
-    public player(Image img){
-        this.img = img;
+    public player(Image[] stay, Image[] left, Image[] jump) {
+        this.stay = stay;
+        this.left = left;
+        this.jump = jump;
     }
 
-    public player(){
+    public player() {
 
     }
 
@@ -49,6 +56,8 @@ public class player {
 
         x += velocityX * dt;
         y += velocityY * dt;
+
+        updateAnimation(dt);
 
 
         if (y + height >= 450) {
@@ -76,7 +85,45 @@ public class player {
             velocityX = 0;
             dead = true;
         }
+
+
+        // 超出地图死亡
+        if (y < -50) {
+            dead = true;
+        }
+
+        if (y > 500) {
+            dead = true;
+        }
+
+        if (x < -50) {
+            dead = true;
+        }
+
+        if (x + width > 850) {
+            dead = true;
+        }
     }
 
+    private void updateAnimation(double dt) {
+        animationTimer += dt;
 
+        if (animationTimer >= animationSpeed) {
+            currentFrame++;
+            currentFrame %= 5;
+            animationTimer = 0;
+        }
+    }
+
+    public Image getCurrentImage() {
+
+        if (!onGround) {
+            return jump[currentFrame];
+        }
+
+        if (leftPressed || rightPressed) {
+            return left[currentFrame];
+        }
+        return stay[currentFrame];
+    }
 }

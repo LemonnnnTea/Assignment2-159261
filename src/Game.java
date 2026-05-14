@@ -1,3 +1,4 @@
+import java.awt.*;
 import java.awt.event.KeyEvent;
 
 public class Game extends GameEngine{
@@ -6,6 +7,7 @@ public class Game extends GameEngine{
     int currentLevel;
 
     player[] player = new player[2];
+    Image spritesheet;
 
     public static void main(String[] args) {
         createGame(new Game(), 60);
@@ -16,10 +18,22 @@ public class Game extends GameEngine{
     }
 
     public void drawPlayer(player player1, player player2){
-        drawImage(player1.img, player1.x, player1.y);
-        drawImage(player2.img,   player2.x, player2.y);
-    }
 
+        if(player1.rightPressed){
+            drawImage(player1.getCurrentImage(), player1.x, player1.y, -player1.width, player1.height);
+        }else{
+            drawImage(player1.getCurrentImage(), player1.x, player1.y, player1.width, player1.height);
+
+        }
+
+        if(player2.rightPressed){
+            drawImage(player2.getCurrentImage(), player2.x, player2.y, -player2.width, player2.height);
+        }else{
+            drawImage(player2.getCurrentImage(), player2.x, player2.y, player2.width, player2.height);
+
+        }
+
+    }
 
     private void drawTrap(trap trap) {
         drawImage(trap.image, trap.x, trap.y, trap.width, trap.height);
@@ -51,9 +65,29 @@ public class Game extends GameEngine{
         currentLevel = 1;
 
         level = new level1(loadImage("resources/bg1.png"));
-        player[0] = new player(loadImage("resources/playerMale.png"));
-        player[1] = new player(loadImage("resources/playerMale.png"));
+        Image spritesheet = loadImage("resources/playerMale.png");
 
+        Image[] stay = new Image[5];
+        Image[] left = new Image[5];
+        Image[] right = new Image[5];
+        Image[] jump = new Image[5];
+
+        int spriteSize = 50;
+
+        for (int i = 0; i < 5; i++) {
+            stay[i] = subImage(spritesheet, i * spriteSize, 0, spriteSize, spriteSize);
+        }
+
+        for (int i = 0; i < 5; i++) {
+            left[i] = subImage(spritesheet, i * spriteSize, spriteSize, spriteSize, spriteSize);
+        }
+
+        for (int i = 0; i < 5; i++) {
+            jump[i] = subImage(spritesheet, i * spriteSize, spriteSize * 2, spriteSize, spriteSize);
+        }
+
+        player[0] = new player(stay, left, jump);
+        player[1] = new player(stay, left, jump);
 
     }
 
