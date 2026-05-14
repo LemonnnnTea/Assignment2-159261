@@ -20,6 +20,11 @@ public class Game extends GameEngine{
         drawImage(player2.img,   player2.x, player2.y);
     }
 
+
+    private void drawTrap(trap trap) {
+        drawImage(trap.image, trap.x, trap.y, trap.width, trap.height);
+    }
+
     @Override
     public void update(double dt) {
         player[0].updatePlayer(dt);

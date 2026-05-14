@@ -3,14 +3,14 @@ import java.awt.*;
 public abstract class trap {
     double x, y;
     double width, height;
-    Image img;
+    Image image;
 
     public trap(double x, double y, double width, double height, Image img) {
         this.x = x;
         this.y = y;
         this.width = width;
         this.height = height;
-        this.img = img;
+        this.image = img;
     }
 
     public trap(){

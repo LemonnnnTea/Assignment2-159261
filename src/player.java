@@ -17,6 +17,8 @@ public class player {
 
     boolean onGround = false;
 
+    boolean dead = false;
+
 
     public player(Image img){
         this.img = img;
@@ -49,10 +51,30 @@ public class player {
         y += velocityY * dt;
 
 
-        if (y + height >= 500) {
-            y = 500 - height;
+        if (y + height >= 450) {
+            y = 450 - height;
             velocityY = 0;
             onGround = true;
+            dead = true;
+        }
+
+        if(y - height < -50){
+            y = 0;
+            velocityY = 0;
+            dead = true;
+        }
+
+
+        if (x + width >= 800) {
+            x = 800 - width;
+            velocityX = 0;
+            dead = true;
+        }
+
+        if (x - width < -50) {
+            x = 0;
+            velocityX = 0;
+            dead = true;
         }
     }
 
