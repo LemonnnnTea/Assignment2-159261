@@ -18,7 +18,10 @@ public class Game extends GameEngine{
     boolean quitHover = false;
 
     boolean showHelp = false;
-
+    boolean gameOver = false;
+    boolean levelComplete = false;
+    Image gameOverImage;
+    Image victoryImage;
     public static void main(String[] args) {
         createGame(new Game(), 60);
     }
@@ -101,8 +104,14 @@ public class Game extends GameEngine{
 
     @Override
     public void update(double dt) {
-        if (currentLevel == 1) {
+        if (currentLevel >= 1 && currentLevel <= 5 && !gameOver && !levelComplete) {
             level.update(dt);
+
+            if (level.isLevelComplete()) {
+                levelComplete = true;
+            } else if (player[0].dead || player[1].dead) {
+                gameOver = true;
+            }
         }
     }
 
@@ -114,7 +123,7 @@ public class Game extends GameEngine{
             clearBackground(width(), height());
 
             changeColor(255, 255, 255);
-            drawBoldText(210, 100, "DOUBLE I WANNA", "Arial", 42);
+            drawBoldText(210, 100, "You jump,I jump", "Arial", 42);
 
             changeColor(180, 180, 180);
             drawText(265, 140, "Two Players Challenge Game", "Arial", 18);
@@ -159,7 +168,7 @@ public class Game extends GameEngine{
                 drawText(160, 365, "Press H or click HELP again to close.", "Arial", 18);
             }
         }
-        else{
+        else if (currentLevel >= 1 && currentLevel <= 5){
             drawLevel(level);
             for(Platform p : level.platforms){
 
@@ -169,10 +178,69 @@ public class Game extends GameEngine{
 
             }
 
-            drawPlayer(player[0], player[1]);
+            if (level.getGate() != null) {
+                drawGate(level.getGate());
+            }
+
+            if (!gameOver && !levelComplete) {
+                boolean showPlayer1 = !level.getGate().hasPlayerReached(1);
+                boolean showPlayer2 = !level.getGate().hasPlayerReached(2);
+
+                if (showPlayer1 && showPlayer2) {
+                    drawPlayer(player[0], player[1]);
+                } else if (showPlayer1) {
+                    drawSinglePlayer(player[0]);
+                } else if (showPlayer2) {
+                    drawSinglePlayer(player[1]);
+                }
+            }
+
+            if (gameOver) {
+                changeColor(0, 0, 0);
+                drawSolidRectangle(0, 0, width(), height());
+
+                if (gameOverImage != null) {
+                    double imageWidth = 400;
+                    double imageHeight = 300;
+                    double imageX = (width() - imageWidth) / 2;
+                    double imageY = (height() - imageHeight) / 2 - 50;
+                    drawImage(gameOverImage, imageX, imageY, imageWidth, imageHeight);
+                }
+
+
+                changeColor(255, 255, 255);
+                drawText(220, 370, "Press R to restart", "Arial", 24);
+            }
+
+            if (levelComplete) {
+                changeColor(0, 0, 0);
+                drawSolidRectangle(0, 0, width(), height());
+
+                if (victoryImage != null) {
+                    double imageWidth = 400;
+                    double imageHeight = 300;
+                    double imageX = (width() - imageWidth) / 2;
+                    double imageY = (height() - imageHeight) / 2 - 50;
+                    drawImage(victoryImage, imageX, imageY, imageWidth, imageHeight);
+                }
+
+                changeColor(255, 215, 0);
+                drawBoldText(280, 320, "VICTORY!", "Arial", 42);
+
+                changeColor(255, 255, 255);
+                drawText(180, 370, "Press SPACE for next level", "Arial", 20);
+                drawText(220, 400, "Press R to restart", "Arial", 20);
+            }
         }
     }
 
+    private void drawSinglePlayer(player p) {
+        if (p.faceRight) {
+            drawImage(p.getCurrentImage(), p.x + 50, p.y, -p.width, p.height);
+        } else {
+            drawImage(p.getCurrentImage(), p.x, p.y, p.width, p.height);
+        }
+    }
     @Override
     public void init(){
         setWindowSize(800, 450);
@@ -208,6 +276,10 @@ public class Game extends GameEngine{
         Image pitImage = loadImage("resources/pit.png");
         Image knifeImage = loadImage("resources/knife.png");
         Image portalImage = loadImage("resources/portal.png");
+        Image gateImage = loadImage("resources/gate.png");
+        gameOverImage = loadImage("resources/oneplayersurvive.png");
+        victoryImage = loadImage("resources/victory.png");
+
 
         level = new level1(loadImage("resources/bg1.png"));
 
@@ -219,9 +291,115 @@ public class Game extends GameEngine{
                 sawImage,
                 pitImage,
                 knifeImage,
-                portalImage
+                portalImage,
+                gateImage
         );
 
+    }
+
+    private void restartLevel() {
+        gameOver = false;
+        levelComplete = false;
+
+        Image platformImage = loadImage("resources/platform.png");
+        Image spikeImage = loadImage("resources/spike.png");
+        Image sawImage = loadImage("resources/saw.png");
+        Image pitImage = loadImage("resources/pit.png");
+        Image knifeImage = loadImage("resources/knife.png");
+        Image portalImage = loadImage("resources/portal.png");
+        Image gateImage = loadImage("resources/gate.png");
+
+        if (currentLevel == 1) {
+            level = new level1(loadImage("resources/bg1.png"));
+        } else if (currentLevel == 2) {
+            level = new level2(loadImage("resources/bg1.png"));
+        } else if (currentLevel == 3) {
+            level = new level3(loadImage("resources/bg1.png"));
+        } else if (currentLevel == 4) {
+            level = new level4(loadImage("resources/bg1.png"));
+        } else if (currentLevel == 5) {
+            level = new level5(loadImage("resources/bg1.png"));
+        }
+
+        player[0].dead = false;
+        player[1].dead = false;
+        player[0].velocityX = 0;
+        player[0].velocityY = 0;
+        player[1].velocityX = 0;
+        player[1].velocityY = 0;
+
+        level.load(
+                player[0],
+                player[1],
+                platformImage,
+                spikeImage,
+                sawImage,
+                pitImage,
+                knifeImage,
+                portalImage,
+                gateImage
+        );
+
+        if (level.getGate() != null) {
+            level.getGate().reset();
+        }
+    }
+
+    private void nextLevel() {
+        gameOver = false;
+        levelComplete = false;
+
+        currentLevel++;
+
+        if (currentLevel > 5) {
+            currentLevel = 5;
+            return;
+        }
+
+        Image platformImage = loadImage("resources/platform.png");
+        Image spikeImage = loadImage("resources/spike.png");
+        Image sawImage = loadImage("resources/saw.png");
+        Image pitImage = loadImage("resources/pit.png");
+        Image knifeImage = loadImage("resources/knife.png");
+        Image portalImage = loadImage("resources/portal.png");
+        Image gateImage = loadImage("resources/gate.png");
+
+        if (currentLevel == 2) {
+            level = new level2(loadImage("resources/bg1.png"));
+        } else if (currentLevel == 3) {
+            level = new level3(loadImage("resources/bg1.png"));
+        } else if (currentLevel == 4) {
+            level = new level4(loadImage("resources/bg1.png"));
+        } else if (currentLevel == 5) {
+            level = new level5(loadImage("resources/bg1.png"));
+        }
+
+        player[0].dead = false;
+        player[1].dead = false;
+        player[0].velocityX = 0;
+        player[0].velocityY = 0;
+        player[1].velocityX = 0;
+        player[1].velocityY = 0;
+
+        level.load(
+                player[0],
+                player[1],
+                platformImage,
+                spikeImage,
+                sawImage,
+                pitImage,
+                knifeImage,
+                portalImage,
+                gateImage
+        );
+
+        if (level.getGate() != null) {
+            level.getGate().reset();
+        }
+    }
+
+    private void drawGate(Gate gate) {
+        drawImage(gate.getCurrentImage(), gate.x, gate.y, gate.width, gate.height);
     }
 
     @Override
@@ -247,6 +425,21 @@ public class Game extends GameEngine{
         }
 
         else{
+            if (gameOver) {
+                if (event.getKeyCode() == KeyEvent.VK_R) {
+                    restartLevel();
+                }
+                return;
+            }
+            if (levelComplete) {
+                if (event.getKeyCode() == KeyEvent.VK_SPACE) {
+                    nextLevel();
+                }
+                if (event.getKeyCode() == KeyEvent.VK_R) {
+                    restartLevel();
+                }
+                return;
+            }
 
             if(event.getKeyCode() == KeyEvent.VK_LEFT){
                 player[1].leftPressed = true;
@@ -332,6 +525,7 @@ public class Game extends GameEngine{
                 mouseY >= y &&
                 mouseY <= y + h;
     }
+
 
     @Override
     public void mousePressed(MouseEvent event) {

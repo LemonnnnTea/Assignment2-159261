@@ -11,6 +11,7 @@ public abstract class level {
     ArrayList<Platform> platforms = new ArrayList<>();
     ArrayList<Trap> traps = new ArrayList<>();
     ArrayList<Portal> portals = new ArrayList<>();
+    Gate gate;
 
     double spawnX1, spawnY1;
     double spawnX2, spawnY2;
@@ -29,7 +30,8 @@ public abstract class level {
             Image sawImage,
             Image pitImage,
             Image knifeImage,
-            Image portalImage
+            Image portalImage,
+            Image gateImage
     );
 
     public void update(double dt) {
@@ -60,8 +62,12 @@ public abstract class level {
         handlePortals(player1);
         handlePortals(player2);
 
-        respawnIfDead(player1, spawnX1, spawnY1);
-        respawnIfDead(player2, spawnX2, spawnY2);
+        handleGate(player1);
+        handleGate(player2);
+        if (gate != null) {
+            gate.update(dt);
+        }
+
     }
 
     private void handlePlatformCollision(player p) {
@@ -117,6 +123,15 @@ public abstract class level {
             }
         }
     }
+    private void handleGate(player p) {
+        if (gate != null && gate.checkCollision(p)) {
+            if (p == player1) {
+                gate.playerReach(1);
+            } else if (p == player2) {
+                gate.playerReach(2);
+            }
+        }
+    }
 
     private void respawnIfDead(player p, double spawnX, double spawnY) {
         if (p.dead) {
@@ -137,6 +152,13 @@ public abstract class level {
                         player2.x, player2.y, player2.width, player2.height,
                         goalX, goalY, goalWidth, goalHeight
                 );
+    }
+    public boolean isLevelComplete() {
+        return gate != null && gate.isCompleted();
+    }
+
+    public Gate getGate() {
+        return gate;
     }
 
     public ArrayList<Platform> getPlatforms() {

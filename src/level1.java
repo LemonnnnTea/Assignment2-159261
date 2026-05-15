@@ -15,7 +15,8 @@ public class level1 extends level {
             Image sawImage,
             Image pitImage,
             Image knifeImage,
-            Image portalImage
+            Image portalImage,
+            Image gateImage
     ) {
         this.player1 = player1;
         this.player2 = player2;
@@ -79,5 +80,6 @@ public class level1 extends level {
                 560, 260,
                 portalImage
         ));
+        gate = new Gate(750, 270, 50, 50, gateImage);
     }
 }
