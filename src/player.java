@@ -4,6 +4,7 @@ public class player {
     double x, y;
     int height = 50, width = 50;
     Image[] jump, left, stay;
+    boolean faceRight = true;
 
 
     int currentFrame = 0;
@@ -41,10 +42,12 @@ public class player {
 
         if (leftPressed) {
             velocityX = -speed;
+            faceRight = false;
         }
 
         if (rightPressed) {
             velocityX = speed;
+            faceRight = true;
         }
 
         if (jumpPressed && onGround) {
