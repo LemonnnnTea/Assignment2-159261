@@ -22,6 +22,15 @@ public class Game extends GameEngine{
     boolean levelComplete = false;
     Image gameOverImage;
     Image victoryImage;
+
+    Image[] platformImage;
+    Image spikeImage;
+    Image[] sawFrames;
+    Image pitImage;
+    Image knifeImage;
+    Image portalImage;
+    Image[] gateImage;
+
     public static void main(String[] args) {
         createGame(new Game(), 60);
     }
@@ -100,6 +109,18 @@ public class Game extends GameEngine{
                 portal.width,
                 portal.height
         );
+    }
+
+    private void drawSinglePlayer(player p) {
+        if (p.faceRight) {
+            drawImage(p.getCurrentImage(), p.x + 50, p.y, -p.width, p.height);
+        } else {
+            drawImage(p.getCurrentImage(), p.x, p.y, p.width, p.height);
+        }
+    }
+
+    private void drawGate(Gate gate) {
+        drawImage(gate.getCurrentImage(), gate.x, gate.y, gate.width, gate.height);
     }
 
     @Override
@@ -234,20 +255,17 @@ public class Game extends GameEngine{
         }
     }
 
-    private void drawSinglePlayer(player p) {
-        if (p.faceRight) {
-            drawImage(p.getCurrentImage(), p.x + 50, p.y, -p.width, p.height);
-        } else {
-            drawImage(p.getCurrentImage(), p.x, p.y, p.width, p.height);
-        }
-    }
+
     @Override
     public void init(){
         setWindowSize(800, 450);
         currentLevel = 0;
 
         level = new level1(loadImage("resources/bg1.png"));
-        Image spritesheet = loadImage("resources/playerMale.png");
+        Image playerSheet = loadImage("resources/playerMale.png");
+        Image platformSheet = loadImage("resources/platform.png");
+        Image gateSheet = loadImage("resources/gate.png");
+        Image sawSheet = loadImage("resources/saw.png");
 
         Image[] stay = new Image[5];
         Image[] left = new Image[5];
@@ -256,27 +274,42 @@ public class Game extends GameEngine{
         int spriteSize = 50;
 
         for (int i = 0; i < 5; i++) {
-            stay[i] = subImage(spritesheet, i * spriteSize, 0, spriteSize, spriteSize);
+            stay[i] = subImage(playerSheet, i * spriteSize, 0, spriteSize, spriteSize);
         }
 
         for (int i = 0; i < 5; i++) {
-            left[i] = subImage(spritesheet, i * spriteSize, spriteSize, spriteSize, spriteSize);
+            left[i] = subImage(playerSheet, i * spriteSize, spriteSize, spriteSize, spriteSize);
         }
 
         for (int i = 0; i < 5; i++) {
-            jump[i] = subImage(spritesheet, i * spriteSize, spriteSize * 2, spriteSize, spriteSize);
+            jump[i] = subImage(playerSheet, i * spriteSize, spriteSize * 2, spriteSize, spriteSize);
         }
 
         player[0] = new player(stay, left, jump);
         player[1] = new player(stay, left, jump);
 
-        Image platformImage = loadImage("resources/platform.png");
-        Image spikeImage = loadImage("resources/spike.png");
-        Image sawImage = loadImage("resources/saw.png");
-        Image pitImage = loadImage("resources/pit.png");
-        Image knifeImage = loadImage("resources/knife.png");
-        Image portalImage = loadImage("resources/portal.png");
-        Image gateImage = loadImage("resources/gate.png");
+        platformImage = new Image[4];
+
+        platformImage[0] = subImage(platformSheet, 0, 0, 100, 20);
+        platformImage[1] = subImage(platformSheet, 100, 0, 100, 20);
+        platformImage[2] = subImage(platformSheet, 0, 20, 100, 20);
+        platformImage[3] = subImage(platformSheet, 100, 20, 100, 20);
+
+        gateImage = new Image[5];
+        for (int i = 0; i < 5; i++) {
+            gateImage[i] = subImage(gateSheet, i * 50, 0, 50, 50);
+        }
+
+        spikeImage = loadImage("resources/spike.png");
+
+
+        Image[] sawFrames = new Image[2];
+
+        sawFrames[0] = subImage(sawSheet, 0, 0, 50, 50);
+        sawFrames[1] = subImage(sawSheet, 50, 0, 50, 50);
+        pitImage = loadImage("resources/pit.png");
+        knifeImage = loadImage("resources/knife.png");
+        portalImage = loadImage("resources/portal.png");
         gameOverImage = loadImage("resources/oneplayersurvive.png");
         victoryImage = loadImage("resources/victory.png");
 
@@ -288,7 +321,7 @@ public class Game extends GameEngine{
                 player[1],
                 platformImage,
                 spikeImage,
-                sawImage,
+                sawFrames,
                 pitImage,
                 knifeImage,
                 portalImage,
@@ -301,25 +334,18 @@ public class Game extends GameEngine{
         gameOver = false;
         levelComplete = false;
 
-        Image platformImage = loadImage("resources/platform.png");
-        Image spikeImage = loadImage("resources/spike.png");
-        Image sawImage = loadImage("resources/saw.png");
-        Image pitImage = loadImage("resources/pit.png");
-        Image knifeImage = loadImage("resources/knife.png");
-        Image portalImage = loadImage("resources/portal.png");
-        Image gateImage = loadImage("resources/gate.png");
-
         if (currentLevel == 1) {
             level = new level1(loadImage("resources/bg1.png"));
-        } else if (currentLevel == 2) {
-            level = new level2(loadImage("resources/bg1.png"));
-        } else if (currentLevel == 3) {
-            level = new level3(loadImage("resources/bg1.png"));
-        } else if (currentLevel == 4) {
-            level = new level4(loadImage("resources/bg1.png"));
-        } else if (currentLevel == 5) {
-            level = new level5(loadImage("resources/bg1.png"));
         }
+//         else if (currentLevel == 2) {
+//            level = new level2(loadImage("resources/bg1.png"));
+//        } else if (currentLevel == 3) {
+//            level = new level3(loadImage("resources/bg1.png"));
+//        } else if (currentLevel == 4) {
+//            level = new level4(loadImage("resources/bg1.png"));
+//        } else if (currentLevel == 5) {
+//            level = new level5(loadImage("resources/bg1.png"));
+//        }
 
         player[0].dead = false;
         player[1].dead = false;
@@ -328,21 +354,21 @@ public class Game extends GameEngine{
         player[1].velocityX = 0;
         player[1].velocityY = 0;
 
+        if (level.getGate() != null) {
+            level.getGate().reset();
+        }
+
         level.load(
                 player[0],
                 player[1],
                 platformImage,
                 spikeImage,
-                sawImage,
+                sawFrames,
                 pitImage,
                 knifeImage,
                 portalImage,
                 gateImage
         );
-
-        if (level.getGate() != null) {
-            level.getGate().reset();
-        }
     }
 
     private void nextLevel() {
@@ -356,23 +382,15 @@ public class Game extends GameEngine{
             return;
         }
 
-        Image platformImage = loadImage("resources/platform.png");
-        Image spikeImage = loadImage("resources/spike.png");
-        Image sawImage = loadImage("resources/saw.png");
-        Image pitImage = loadImage("resources/pit.png");
-        Image knifeImage = loadImage("resources/knife.png");
-        Image portalImage = loadImage("resources/portal.png");
-        Image gateImage = loadImage("resources/gate.png");
-
-        if (currentLevel == 2) {
-            level = new level2(loadImage("resources/bg1.png"));
-        } else if (currentLevel == 3) {
-            level = new level3(loadImage("resources/bg1.png"));
-        } else if (currentLevel == 4) {
-            level = new level4(loadImage("resources/bg1.png"));
-        } else if (currentLevel == 5) {
-            level = new level5(loadImage("resources/bg1.png"));
-        }
+//        if (currentLevel == 2) {
+//            level = new level2(loadImage("resources/bg1.png"));
+//        } else if (currentLevel == 3) {
+//            level = new level3(loadImage("resources/bg1.png"));
+//        } else if (currentLevel == 4) {
+//            level = new level4(loadImage("resources/bg1.png"));
+//        } else if (currentLevel == 5) {
+//            level = new level5(loadImage("resources/bg1.png"));
+//        }
 
         player[0].dead = false;
         player[1].dead = false;
@@ -381,36 +399,21 @@ public class Game extends GameEngine{
         player[1].velocityX = 0;
         player[1].velocityY = 0;
 
-        level.load(
-                player[0],
-                player[1],
-                platformImage,
-                spikeImage,
-                sawImage,
-                pitImage,
-                knifeImage,
-                portalImage,
-                gateImage
-        );
 
         if (level.getGate() != null) {
             level.getGate().reset();
         }
+
+        level.load(player[0], player[1], platformImage, spikeImage, sawFrames, pitImage, knifeImage, portalImage, gateImage);
     }
 
-    private void drawGate(Gate gate) {
-        drawImage(gate.getCurrentImage(), gate.x, gate.y, gate.width, gate.height);
-    }
+
 
     @Override
     public void keyPressed(KeyEvent event) {
-
-
         if (currentLevel == 0) {
-
             if (event.getKeyCode() == KeyEvent.VK_ENTER) {
                 currentLevel = 1;
-                // loadLevel(1);
             }
 
             if (event.getKeyCode() == KeyEvent.VK_H) {
@@ -453,11 +456,6 @@ public class Game extends GameEngine{
                 player[1].jumpPressed = true;
             }
 
-            if(event.getKeyCode() == KeyEvent.VK_DOWN){
-
-            }
-
-
             if(event.getKeyCode() == KeyEvent.VK_A){
                 player[0].leftPressed = true;
             }
@@ -468,10 +466,6 @@ public class Game extends GameEngine{
 
             if(event.getKeyCode() == KeyEvent.VK_W){
                 player[0].jumpPressed = true;
-            }
-
-            if(event.getKeyCode() == KeyEvent.VK_S){
-
             }
         }
     }

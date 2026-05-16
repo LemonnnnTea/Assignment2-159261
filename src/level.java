@@ -25,13 +25,13 @@ public abstract class level {
     public abstract void load(
             player player1,
             player player2,
-            Image platformImage,
+            Image[] platformImage,
             Image spikeImage,
-            Image sawImage,
+            Image[] sawFrames,
             Image pitImage,
             Image knifeImage,
             Image portalImage,
-            Image gateImage
+            Image[] gateImage
     );
 
     public void update(double dt) {

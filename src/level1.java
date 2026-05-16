@@ -10,13 +10,13 @@ public class level1 extends level {
     public void load(
             player player1,
             player player2,
-            Image platformImage,
+            Image[] platformImage,
             Image spikeImage,
-            Image sawImage,
+            Image[] sawFrames,
             Image pitImage,
             Image knifeImage,
             Image portalImage,
-            Image gateImage
+            Image[] gateImage
     ) {
         this.player1 = player1;
         this.player2 = player2;
@@ -42,19 +42,23 @@ public class level1 extends level {
         goalWidth = 70;
         goalHeight = 100;
 
-        platforms.add(new Platform(0, 400, 220, 50, platformImage));
-        platforms.add(new Platform(300, 360, 160, 40, platformImage));
-        platforms.add(new Platform(540, 320, 240, 40, platformImage));
+        platforms.add(new Platform(0, 400, 220, 50, platformImage[(int)(Math.random() * 4)]));
+        platforms.add(new Platform(300, 360, 160, 40, platformImage[(int)(Math.random() * 4)]));
+        platforms.add(new Platform(540, 320, 240, 40, platformImage[(int)(Math.random() * 4)]));
 
         traps.add(new Spike(230, 350, 50, 50, spikeImage));
+
 
         traps.add(new Saw(
                 340, 310,
                 50, 50,
                 430, 310,
                 120,
-                sawImage
+                sawFrames
         ));
+
+
+
 
         traps.add(new MovingPit(
                 500, 370,

@@ -8,8 +8,7 @@ public class MovingPit extends Trap {
 
     boolean open = false;
 
-    public MovingPit(double x, double y, double width, double height,
-                     double openTime, double closeTime, Image image) {
+    public MovingPit(double x, double y, double width, double height, double openTime, double closeTime, Image image) {
 
         super(x, y, width, height, image);
 
