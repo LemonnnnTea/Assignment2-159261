@@ -36,11 +36,15 @@ public abstract class level {
 
     public void update(double dt) {
 
-        player1.updatePlayer(dt);
-        player2.updatePlayer(dt);
+        if (!player1.reachedGate) {
+            player1.updatePlayer(dt);
+            handlePlatformCollision(player1);
+        }
 
-        handlePlatformCollision(player1);
-        handlePlatformCollision(player2);
+        if (!player2.reachedGate) {
+            player2.updatePlayer(dt);
+            handlePlatformCollision(player2);
+        }
 
         for (Trap trap : traps) {
 
@@ -50,20 +54,31 @@ public abstract class level {
 
             trap.update(dt, player1, player2);
 
-            if (trap.checkCollision(player1)) {
+            if (!player1.reachedGate && trap.checkCollision(player1)) {
                 trap.onCollide(player1);
             }
 
-            if (trap.checkCollision(player2)) {
+            if (!player2.reachedGate && trap.checkCollision(player2)) {
                 trap.onCollide(player2);
             }
         }
 
-        handlePortals(player1);
-        handlePortals(player2);
+        if (!player1.reachedGate) {
+            handlePortals(player1);
+        }
 
-        handleGate(player1);
-        handleGate(player2);
+        if (!player2.reachedGate) {
+            handlePortals(player2);
+        }
+
+        if (!player1.reachedGate) {
+            handleGate(player1);
+        }
+
+        if (!player2.reachedGate) {
+            handleGate(player2);
+        }
+
         if (gate != null) {
             gate.update(dt);
         }
@@ -127,8 +142,10 @@ public abstract class level {
         if (gate != null && gate.checkCollision(p)) {
             if (p == player1) {
                 gate.playerReach(1);
+                player1.reachedGate = true;
             } else if (p == player2) {
                 gate.playerReach(2);
+                player2.reachedGate = true;
             }
         }
     }

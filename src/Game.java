@@ -20,8 +20,46 @@ public class Game extends GameEngine{
     boolean showHelp = false;
     boolean gameOver = false;
     boolean levelComplete = false;
+    boolean showLevelSelect = false;
+    boolean gamePaused = false;
     Image gameOverImage;
     Image victoryImage;
+
+    boolean pauseReturnHover = false;
+    boolean pauseHelpHover = false;
+    boolean pauseQuitHover = false;
+    boolean showPauseHelp = false;
+
+    boolean pauseResumeHover = false;
+    boolean pauseQuitLevelHover = false;
+    boolean pauseMenuHover = false;
+
+    double levelCompleteTimer = 0;
+    boolean showAllLevelsComplete = false;
+    double allLevelsCompleteTimer = 0;
+
+    int maxUnlockedLevel = 1;
+
+    class LevelButton {
+        int levelNumber;
+        double x, y, width, height;
+        String levelName;
+        boolean unlocked;
+
+        LevelButton(int level, double x, double y, double w, double h, String name, boolean unlocked) {
+            this.levelNumber = level;
+            this.x = x;
+            this.y = y;
+            this.width = w;
+            this.height = h;
+            this.levelName = name;
+            this.unlocked = unlocked;
+        }
+    }
+
+    LevelButton[] levelButtons;
+    int hoveredLevelButton = -1;
+    String levelDescription = "";
 
     Image[] platformImage;
     Image spikeImage;
@@ -123,15 +161,109 @@ public class Game extends GameEngine{
         drawImage(gate.getCurrentImage(), gate.x, gate.y, gate.width, gate.height);
     }
 
+    private void drawLevelSelectScreen() {
+        changeBackgroundColor(173, 216, 230);
+        clearBackground(width(), height());
+
+        changeColor(0, 0, 0);
+        drawBoldText(280, 50, "SELECT LEVEL", "Arial", 36);
+
+        for (int i = 0; i < levelButtons.length - 1; i++) {
+            LevelButton current = levelButtons[i];
+            LevelButton next = levelButtons[i + 1];
+
+            double x1 = current.x + current.width / 2;
+            double y1 = current.y + current.height / 2;
+            double x2 = next.x + next.width / 2;
+            double y2 = next.y + next.height / 2;
+
+            changeColor(100, 100, 100);
+            drawLine(x1, y1, x2, y2, 3);
+        }
+
+        for (LevelButton button : levelButtons) {
+            if (button.unlocked) {
+                changeColor(34, 139, 34);
+            } else {
+                changeColor(0, 0, 139);
+            }
+
+            drawSolidRectangle(button.x, button.y, button.width, button.height);
+
+            changeColor(255, 255, 255);
+            drawRectangle(button.x, button.y, button.width, button.height, 2);
+
+            changeColor(255, 255, 255);
+            String buttonText = button.unlocked ? "Level " + button.levelNumber : "Locked";
+            drawBoldText(button.x + 15, button.y + 30, buttonText, "Arial", 18);
+        }
+
+        if (hoveredLevelButton >= 0 && hoveredLevelButton < levelButtons.length) {
+            LevelButton button = levelButtons[hoveredLevelButton];
+
+            double triangleX = button.x + button.width / 2;
+            double triangleY = button.y - 15;
+            double triangleSize = 15;
+
+            changeColor(0, 0, 0);
+
+            double[] xPoints = {triangleX - triangleSize / 2, triangleX + triangleSize / 2, triangleX};
+            double[] yPoints = {triangleY - triangleSize, triangleY - triangleSize, triangleY};
+
+            int[] xIntPoints = {(int)xPoints[0], (int)xPoints[1], (int)xPoints[2]};
+            int[] yIntPoints = {(int)yPoints[0], (int)yPoints[1], (int)yPoints[2]};
+
+            mGraphics.fillPolygon(xIntPoints, yIntPoints, 3);
+
+            changeColor(0, 0, 0);
+            drawSolidRectangle(250, 20, 300, 50);
+
+            changeColor(255, 255, 255);
+            drawRectangle(250, 20, 300, 50, 2);
+
+            changeColor(255, 255, 255);
+            drawBoldText(265, 50, button.levelName, "Arial", 18);
+        } else {
+            changeColor(0, 0, 0);
+            drawSolidRectangle(250, 20, 300, 50);
+
+            changeColor(255, 255, 255);
+            drawRectangle(250, 20, 300, 50, 2);
+        }
+
+        changeColor(100, 100, 100);
+        drawText(250, 420, "Click on unlocked levels to play | Press ESC to go back", "Arial", 16);
+    }
+
     @Override
     public void update(double dt) {
-        if (currentLevel >= 1 && currentLevel <= 5 && !gameOver && !levelComplete) {
+        if (currentLevel >= 1 && currentLevel <= 5 && !gameOver && !levelComplete && !gamePaused) {
             level.update(dt);
 
             if (level.isLevelComplete()) {
                 levelComplete = true;
+                levelCompleteTimer = 0;
+
+                if (currentLevel == 5) {
+                    showAllLevelsComplete = true;
+                    allLevelsCompleteTimer = 0;
+                }
             } else if (player[0].dead || player[1].dead) {
                 gameOver = true;
+            }
+        }
+
+        if (levelComplete && currentLevel != 5) {
+            levelCompleteTimer += dt;
+        }
+
+        if (showAllLevelsComplete) {
+            allLevelsCompleteTimer += dt;
+            if (allLevelsCompleteTimer >= 3.0) {
+                showAllLevelsComplete = false;
+                levelComplete = false;
+                currentLevel = -1;
+                showLevelSelect = true;
             }
         }
     }
@@ -189,6 +321,9 @@ public class Game extends GameEngine{
                 drawText(160, 365, "Press H or click HELP again to close.", "Arial", 18);
             }
         }
+        else if (currentLevel == -1) {
+            drawLevelSelectScreen();
+        }
         else if (currentLevel >= 1 && currentLevel <= 5){
             drawLevel(level);
             for(Platform p : level.platforms){
@@ -203,7 +338,7 @@ public class Game extends GameEngine{
                 drawGate(level.getGate());
             }
 
-            if (!gameOver && !levelComplete) {
+            if (!gameOver && !levelComplete && !gamePaused) {
                 boolean showPlayer1 = !level.getGate().hasPlayerReached(1);
                 boolean showPlayer2 = !level.getGate().hasPlayerReached(2);
 
@@ -215,6 +350,37 @@ public class Game extends GameEngine{
                     drawSinglePlayer(player[1]);
                 }
             }
+
+            if (gamePaused) {
+                changeColor(0, 0, 0);
+                drawSolidRectangle(0, 0, width(), height());
+
+                changeColor(255, 255, 255);
+                drawBoldText(320, 80, "PAUSED", "Arial", 42);
+
+                drawMenuButton(280, 120, 240, 50, "RESUME", pauseResumeHover);
+                drawMenuButton(280, 190, 240, 50, "QUIT", pauseQuitLevelHover);
+                drawMenuButton(280, 260, 240, 50, "HELP", pauseHelpHover);
+                drawMenuButton(280, 330, 240, 50, "MENU", pauseMenuHover);
+
+                if (showPauseHelp) {
+                    changeColor(0, 0, 0);
+                    drawSolidRectangle(120, 120, 560, 330);
+
+                    changeColor(255, 255, 255);
+                    drawRectangle(120, 120, 560, 330, 3);
+
+                    drawBoldText(285, 165, "HELP", "Arial", 34);
+
+                    changeColor(220, 220, 220);
+                    drawText(160, 210, "This is a two-player platform game.", "Arial", 18);
+                    drawText(160, 245, "Both players must survive traps.", "Arial", 18);
+                    drawText(160, 280, "Some levels require cooperation.", "Arial", 18);
+                    drawText(160, 315, "Final level contains a boss fight.", "Arial", 18);
+                    drawText(160, 365, "Press ESC to close help.", "Arial", 18);
+                }
+            }
+
 
             if (gameOver) {
                 changeColor(0, 0, 0);
@@ -237,20 +403,36 @@ public class Game extends GameEngine{
                 changeColor(0, 0, 0);
                 drawSolidRectangle(0, 0, width(), height());
 
-                if (victoryImage != null) {
-                    double imageWidth = 400;
-                    double imageHeight = 300;
-                    double imageX = (width() - imageWidth) / 2;
-                    double imageY = (height() - imageHeight) / 2 - 50;
-                    drawImage(victoryImage, imageX, imageY, imageWidth, imageHeight);
+                if (showAllLevelsComplete) {
+                    changeColor(255, 215, 0);
+                    drawBoldText(180, 150, "Congratulations!", "Arial", 42);
+
+                    changeColor(255, 255, 255);
+                    drawText(120, 220, "You have completed all the levels.", "Arial", 24);
+
+                    int countdown = 3 - (int)allLevelsCompleteTimer;
+                    if (countdown < 0) countdown = 0;
+
+                    changeColor(200, 200, 200);
+                    String countdownText = "Returning to level select... " + countdown;
+                    drawText(260, 350, countdownText, "Arial", 18);
+                } else {
+                    if (victoryImage != null) {
+                        double imageWidth = 400;
+                        double imageHeight = 300;
+                        double imageX = (width() - imageWidth) / 2;
+                        double imageY = (height() - imageHeight) / 2 - 50;
+                        drawImage(victoryImage, imageX, imageY, imageWidth, imageHeight);
+                    }
+
+                    changeColor(255, 215, 0);
+                    drawBoldText(280, 320, "VICTORY!", "Arial", 42);
+
+                    changeColor(255, 255, 255);
+                    drawText(180, 370, "Press SPACE for next level", "Arial", 20);
+                    drawText(220, 400, "Press R to restart", "Arial", 20);
+                    drawText(200, 430, "Press ESC to return to level select", "Arial", 18);
                 }
-
-                changeColor(255, 215, 0);
-                drawBoldText(280, 320, "VICTORY!", "Arial", 42);
-
-                changeColor(255, 255, 255);
-                drawText(180, 370, "Press SPACE for next level", "Arial", 20);
-                drawText(220, 400, "Press R to restart", "Arial", 20);
             }
         }
     }
@@ -328,6 +510,25 @@ public class Game extends GameEngine{
                 gateImage
         );
 
+        initializeLevelButtons();
+    }
+
+    private void initializeLevelButtons() {
+        levelButtons = new LevelButton[5];
+
+        double buttonWidth = 100;
+        double buttonHeight = 50;
+
+        double startX = 100;
+        double startY = 150;
+        double spacingX = 180;
+        double spacingY = 100;
+
+        levelButtons[0] = new LevelButton(1, startX, startY, buttonWidth, buttonHeight, "Level 1: First Steps", true);
+        levelButtons[1] = new LevelButton(2, startX + spacingX, startY, buttonWidth, buttonHeight, "Level 2: Double Trouble", false);
+        levelButtons[2] = new LevelButton(3, startX + spacingX * 2, startY, buttonWidth, buttonHeight, "Level 3: Portal Jump", false);
+        levelButtons[3] = new LevelButton(4, startX + spacingX * 2, startY + spacingY, buttonWidth, buttonHeight, "Level 4: Moving Danger", false);
+        levelButtons[4] = new LevelButton(5, startX + spacingX, startY + spacingY, buttonWidth, buttonHeight, "Level 5: Boss Fight", false);
     }
 
     private void restartLevel() {
@@ -349,6 +550,14 @@ public class Game extends GameEngine{
 
         player[0].dead = false;
         player[1].dead = false;
+        player[0].reachedGate = false;
+        player[1].reachedGate = false;
+        player[0].leftPressed = false;
+        player[0].rightPressed = false;
+        player[0].jumpPressed = false;
+        player[1].leftPressed = false;
+        player[1].rightPressed = false;
+        player[1].jumpPressed = false;
         player[0].velocityX = 0;
         player[0].velocityY = 0;
         player[1].velocityX = 0;
@@ -382,6 +591,11 @@ public class Game extends GameEngine{
             return;
         }
 
+        if (currentLevel > maxUnlockedLevel) {
+            maxUnlockedLevel = currentLevel;
+            updateLevelButtons();
+        }
+
 //        if (currentLevel == 2) {
 //            level = new level2(loadImage("resources/bg1.png"));
 //        } else if (currentLevel == 3) {
@@ -394,6 +608,14 @@ public class Game extends GameEngine{
 
         player[0].dead = false;
         player[1].dead = false;
+        player[0].reachedGate = false;
+        player[1].reachedGate = false;
+        player[0].leftPressed = false;
+        player[0].rightPressed = false;
+        player[0].jumpPressed = false;
+        player[1].leftPressed = false;
+        player[1].rightPressed = false;
+        player[1].jumpPressed = false;
         player[0].velocityX = 0;
         player[0].velocityY = 0;
         player[1].velocityX = 0;
@@ -406,14 +628,68 @@ public class Game extends GameEngine{
 
         level.load(player[0], player[1], platformImage, spikeImage, sawFrames, pitImage, knifeImage, portalImage, gateImage);
     }
+    private void updateLevelButtons() {
+        for (int i = 0; i < levelButtons.length; i++) {
+            levelButtons[i].unlocked = (i + 1) <= maxUnlockedLevel;
+        }
+    }
+    private void loadSelectedLevel(int levelNumber) {
+        currentLevel = levelNumber;
+        showLevelSelect = false;
+        gameOver = false;
+        levelComplete = false;
 
+        if (levelNumber == 1) {
+            level = new level1(loadImage("resources/bg1.png"));
+        }
+//         else if (levelNumber == 2) {
+//            level = new level2(loadImage("resources/bg1.png"));
+//        } else if (levelNumber == 3) {
+//            level = new level3(loadImage("resources/bg1.png"));
+//        } else if (levelNumber == 4) {
+//            level = new level4(loadImage("resources/bg1.png"));
+//        } else if (levelNumber == 5) {
+//            level = new level5(loadImage("resources/bg1.png"));
+//        }
 
+        player[0].dead = false;
+        player[1].dead = false;
+        player[0].reachedGate = false;
+        player[1].reachedGate = false;
+        player[0].leftPressed = false;
+        player[0].rightPressed = false;
+        player[0].jumpPressed = false;
+        player[1].leftPressed = false;
+        player[1].rightPressed = false;
+        player[1].jumpPressed = false;
+        player[0].velocityX = 0;
+        player[0].velocityY = 0;
+        player[1].velocityX = 0;
+        player[1].velocityY = 0;
+
+        if (level.getGate() != null) {
+            level.getGate().reset();
+        }
+
+        level.load(
+                player[0],
+                player[1],
+                platformImage,
+                spikeImage,
+                sawFrames,
+                pitImage,
+                knifeImage,
+                portalImage,
+                gateImage
+        );
+    }
 
     @Override
     public void keyPressed(KeyEvent event) {
         if (currentLevel == 0) {
             if (event.getKeyCode() == KeyEvent.VK_ENTER) {
-                currentLevel = 1;
+                showLevelSelect = true;
+                currentLevel = -1;
             }
 
             if (event.getKeyCode() == KeyEvent.VK_H) {
@@ -427,7 +703,26 @@ public class Game extends GameEngine{
             return;
         }
 
+        if (currentLevel == -1) {
+            if (event.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                showLevelSelect = false;
+                currentLevel = 0;
+            }
+            return;
+        }
+
+
         else{
+            if (gamePaused) {
+                if (event.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                    if (showPauseHelp) {
+                        showPauseHelp = false;
+                    } else {
+                        gamePaused = false;
+                    }
+                }
+                return;
+            }
             if (gameOver) {
                 if (event.getKeyCode() == KeyEvent.VK_R) {
                     restartLevel();
@@ -441,31 +736,54 @@ public class Game extends GameEngine{
                 if (event.getKeyCode() == KeyEvent.VK_R) {
                     restartLevel();
                 }
+                if (event.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                    levelComplete = false;
+                    currentLevel = -1;
+                    showLevelSelect = true;
+                }
+                return;
+            }
+
+            if (event.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                gamePaused = true;
+                showPauseHelp = false;
                 return;
             }
 
             if(event.getKeyCode() == KeyEvent.VK_LEFT){
-                player[1].leftPressed = true;
+                if (!player[1].reachedGate) {
+                    player[1].leftPressed = true;
+                }
             }
 
             if(event.getKeyCode() == KeyEvent.VK_RIGHT){
-                player[1].rightPressed = true;
+                if (!player[1].reachedGate) {
+                    player[1].rightPressed = true;
+                }
             }
 
             if(event.getKeyCode() == KeyEvent.VK_UP){
-                player[1].jumpPressed = true;
+                if (!player[1].reachedGate) {
+                    player[1].jumpPressed = true;
+                }
             }
 
             if(event.getKeyCode() == KeyEvent.VK_A){
-                player[0].leftPressed = true;
+                if (!player[0].reachedGate) {
+                    player[0].leftPressed = true;
+                }
             }
 
             if(event.getKeyCode() == KeyEvent.VK_D){
-                player[0].rightPressed = true;
+                if (!player[0].reachedGate) {
+                    player[0].rightPressed = true;
+                }
             }
 
             if(event.getKeyCode() == KeyEvent.VK_W){
-                player[0].jumpPressed = true;
+                if (!player[0].reachedGate) {
+                    player[0].jumpPressed = true;
+                }
             }
         }
     }
@@ -474,26 +792,38 @@ public class Game extends GameEngine{
     public void keyReleased(KeyEvent event) {
 
         if (event.getKeyCode() == KeyEvent.VK_LEFT) {
-            player[1].leftPressed = false;
+            if (!player[1].reachedGate) {
+                player[1].leftPressed = false;
+            }
         }
 
         if (event.getKeyCode() == KeyEvent.VK_RIGHT) {
-            player[1].rightPressed = false;
+            if (!player[1].reachedGate) {
+                player[1].rightPressed = false;
+            }
         }
 
         if (event.getKeyCode() == KeyEvent.VK_UP) {
-            player[1].jumpPressed = false;
+            if (!player[1].reachedGate) {
+                player[1].jumpPressed = false;
+            }
         }
         if (event.getKeyCode() == KeyEvent.VK_A) {
-            player[0].leftPressed = false;
+            if (!player[0].reachedGate) {
+                player[0].leftPressed = false;
+            }
         }
 
         if (event.getKeyCode() == KeyEvent.VK_D) {
-            player[0].rightPressed = false;
+            if (!player[0].reachedGate) {
+                player[0].rightPressed = false;
+            }
         }
 
         if (event.getKeyCode() == KeyEvent.VK_W) {
-            player[0].jumpPressed = false;
+            if (!player[0].reachedGate) {
+                player[0].jumpPressed = false;
+            }
         }
     }
 
@@ -508,9 +838,24 @@ public class Game extends GameEngine{
         mouseX = event.getX();
         mouseY = event.getY();
 
-        startHover = isMouseInside(460, 220, 220, 50);
-        helpHover = isMouseInside(460, 295, 220, 50);
-        quitHover = isMouseInside(460, 370, 220, 50);
+        if (currentLevel == 0) {
+            startHover = isMouseInside(460, 220, 220, 50);
+            helpHover = isMouseInside(460, 295, 220, 50);
+            quitHover = isMouseInside(460, 370, 220, 50);
+        } else if (currentLevel == -1) {
+            hoveredLevelButton = -1;
+            for (int i = 0; i < levelButtons.length; i++) {
+                if (isMouseInside(levelButtons[i].x, levelButtons[i].y, levelButtons[i].width, levelButtons[i].height)) {
+                    hoveredLevelButton = i;
+                    break;
+                }
+            }
+        }  else if (currentLevel >= 1 && currentLevel <= 5 && gamePaused && !showPauseHelp) {
+            pauseResumeHover = isMouseInside(280, 120, 240, 50);
+            pauseQuitLevelHover = isMouseInside(280, 190, 240, 50);
+            pauseHelpHover = isMouseInside(280, 260, 240, 50);
+            pauseMenuHover = isMouseInside(280, 330, 240, 50);
+        }
     }
 
     public boolean isMouseInside(double x, double y, double w, double h) {
@@ -530,7 +875,8 @@ public class Game extends GameEngine{
         if (currentLevel == 0) {
 
             if (isMouseInside(460, 220, 220, 50)) {
-                currentLevel = 1;
+                showLevelSelect = true;
+                currentLevel = -1;
             }
 
             if (isMouseInside(460, 295, 220, 50)) {
@@ -539,6 +885,33 @@ public class Game extends GameEngine{
 
             if (isMouseInside(460, 370, 220, 50)) {
                 System.exit(0);
+            }
+        } else if (currentLevel == -1) {
+            if (hoveredLevelButton >= 0 && hoveredLevelButton < levelButtons.length) {
+                if (levelButtons[hoveredLevelButton].unlocked) {
+                    loadSelectedLevel(levelButtons[hoveredLevelButton].levelNumber);
+                }
+            }
+        }
+        else if (currentLevel >= 1 && currentLevel <= 5 && gamePaused && !showPauseHelp) {
+            if (isMouseInside(280, 120, 240, 50)) {
+                gamePaused = false;
+            }
+
+            if (isMouseInside(280, 190, 240, 50)) {
+                gamePaused = false;
+                showLevelSelect = true;
+                currentLevel = -1;
+            }
+
+            if (isMouseInside(280, 260, 240, 50)) {
+                showPauseHelp = true;
+            }
+
+            if (isMouseInside(280, 330, 240, 50)) {
+                gamePaused = false;
+                currentLevel = 0;
+                showLevelSelect = false;
             }
         }
     }

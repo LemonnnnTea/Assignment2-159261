@@ -25,6 +25,7 @@ public class player {
 
     boolean dead = false;
 
+    boolean reachedGate = false;
 
     public player(Image[] stay, Image[] left, Image[] jump) {
         this.stay = stay;
