@@ -303,7 +303,7 @@ public class Game extends GameEngine{
         spikeImage = loadImage("resources/spike.png");
 
 
-        Image[] sawFrames = new Image[2];
+        sawFrames = new Image[2];
 
         sawFrames[0] = subImage(sawSheet, 0, 0, 50, 50);
         sawFrames[1] = subImage(sawSheet, 50, 0, 50, 50);
