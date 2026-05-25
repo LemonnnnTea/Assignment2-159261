@@ -33,6 +33,14 @@ public class player {
         this.jump = jump;
     }
 
+    public void setSprites(Image[] stay, Image[] left, Image[] jump) {
+        this.stay = stay;
+        this.left = left;
+        this.jump = jump;
+        currentFrame = 0;
+        animationTimer = 0;
+    }
+
     public player() {
 
     }

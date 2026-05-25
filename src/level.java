@@ -30,7 +30,7 @@ public abstract class level {
             Image[] sawFrames,
             Image pitImage,
             Image knifeImage,
-            Image portalImage,
+            Image[] portalImage,
             Image[] gateImage
     );
 
@@ -38,12 +38,37 @@ public abstract class level {
 
         if (!player1.reachedGate) {
             player1.updatePlayer(dt);
-            handlePlatformCollision(player1);
         }
 
         if (!player2.reachedGate) {
             player2.updatePlayer(dt);
+        }
+
+        updateMovingPlatforms(dt);
+
+        for (Portal portal : portals) {
+            portal.update(dt);
+        }
+
+        boolean player1Teleported = handlePortals(player1);
+        boolean player2Teleported = handlePortals(player2);
+
+        if (!player1.reachedGate) {
+            handlePlatformCollision(player1);
+        }
+
+        if (!player2.reachedGate) {
             handlePlatformCollision(player2);
+        }
+
+        handlePlayerCollision();
+
+        if (!player1Teleported) {
+            handlePortals(player1);
+        }
+
+        if (!player2Teleported) {
+            handlePortals(player2);
         }
 
         for (Trap trap : traps) {
@@ -61,14 +86,6 @@ public abstract class level {
             if (!player2.reachedGate && trap.checkCollision(player2)) {
                 trap.onCollide(player2);
             }
-        }
-
-        if (!player1.reachedGate) {
-            handlePortals(player1);
-        }
-
-        if (!player2.reachedGate) {
-            handlePortals(player2);
         }
 
         if (!player1.reachedGate) {
@@ -131,12 +148,96 @@ public abstract class level {
         }
     }
 
-    private void handlePortals(player p) {
+    private void updateMovingPlatforms(double dt) {
+        for (Platform platform : platforms) {
+            if (platform instanceof MovingPit) {
+                ((MovingPit) platform).update(dt, player1, player2);
+            }
+        }
+    }
+
+    private void handlePlayerCollision() {
+        if (player1.reachedGate || player2.reachedGate || player1.dead || player2.dead) {
+            return;
+        }
+
+        if (!CollisionManager.rectCollision(
+                player1.x, player1.y, player1.width, player1.height,
+                player2.x, player2.y, player2.width, player2.height
+        )) {
+            return;
+        }
+
+        double player1Bottom = player1.y + player1.height;
+        double player2Bottom = player2.y + player2.height;
+        double player1Right = player1.x + player1.width;
+        double player2Right = player2.x + player2.width;
+
+        double overlapPlayer1Top = player1Bottom - player2.y;
+        double overlapPlayer2Top = player2Bottom - player1.y;
+        double overlapPlayer1Left = player1Right - player2.x;
+        double overlapPlayer2Left = player2Right - player1.x;
+
+        double verticalOverlap = Math.min(overlapPlayer1Top, overlapPlayer2Top);
+        double horizontalOverlap = Math.min(overlapPlayer1Left, overlapPlayer2Left);
+
+        if (verticalOverlap <= horizontalOverlap) {
+            if (overlapPlayer1Top < overlapPlayer2Top) {
+                putPlayerOnTop(player1, player2);
+            } else {
+                putPlayerOnTop(player2, player1);
+            }
+        } else {
+            if (overlapPlayer1Left < overlapPlayer2Left) {
+                separatePlayersHorizontally(player1, player2, overlapPlayer1Left);
+            } else {
+                separatePlayersHorizontally(player2, player1, overlapPlayer2Left);
+            }
+        }
+    }
+
+    private void putPlayerOnTop(player topPlayer, player bottomPlayer) {
+        topPlayer.y = bottomPlayer.y - topPlayer.height;
+        topPlayer.velocityY = 0;
+        topPlayer.onGround = true;
+    }
+
+    private void separatePlayersHorizontally(player leftPlayer, player rightPlayer, double overlap) {
+        boolean leftMovingRight = leftPlayer.velocityX > 0;
+        boolean rightMovingLeft = rightPlayer.velocityX < 0;
+
+        if (leftMovingRight && !rightMovingLeft) {
+            leftPlayer.x -= overlap;
+        } else if (rightMovingLeft && !leftMovingRight) {
+            rightPlayer.x += overlap;
+        } else {
+            double halfOverlap = overlap / 2.0;
+            leftPlayer.x -= halfOverlap;
+            rightPlayer.x += halfOverlap;
+        }
+
+        if (leftPlayer.velocityX > 0) {
+            leftPlayer.velocityX = 0;
+        }
+
+        if (rightPlayer.velocityX < 0) {
+            rightPlayer.velocityX = 0;
+        }
+    }
+
+    private boolean handlePortals(player p) {
+        if (p.reachedGate) {
+            return false;
+        }
+
         for (Portal portal : portals) {
             if (portal.checkCollision(p)) {
                 portal.teleport(p);
+                return true;
             }
         }
+
+        return false;
     }
     private void handleGate(player p) {
         if (gate != null && gate.checkCollision(p)) {

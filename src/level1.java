@@ -15,7 +15,7 @@ public class level1 extends level {
             Image[] sawFrames,
             Image pitImage,
             Image knifeImage,
-            Image portalImage,
+            Image[] portalImage,
             Image[] gateImage
     ) {
         this.player1 = player1;
@@ -60,12 +60,12 @@ public class level1 extends level {
 
 
 
-        traps.add(new MovingPit(
+        platforms.add(new MovingPit(
                 500, 370,
                 80, 30,
-                1.5,
-                1.5,
-                pitImage
+                500, 450,
+                220,
+                platformImage[(int)(Math.random() * 4)]
         ));
 
         traps.add(new FlyingKnife(

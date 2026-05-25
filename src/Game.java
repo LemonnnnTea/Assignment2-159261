@@ -15,9 +15,11 @@ public class Game extends GameEngine{
 
     boolean startHover = false;
     boolean helpHover = false;
+    boolean settingsHover = false;
     boolean quitHover = false;
 
     boolean showHelp = false;
+    boolean showSettings = false;
     boolean gameOver = false;
     boolean levelComplete = false;
     boolean showLevelSelect = false;
@@ -66,8 +68,24 @@ public class Game extends GameEngine{
     Image[] sawFrames;
     Image pitImage;
     Image knifeImage;
-    Image portalImage;
+    Image[] portalImage;
     Image[] gateImage;
+
+    Image[] maleStay;
+    Image[] maleLeft;
+    Image[] maleJump;
+    Image[] femaleStay;
+    Image[] femaleLeft;
+    Image[] femaleJump;
+
+    int characterChoice = 0;
+    int hoveredCharacterChoice = -1;
+    int masterVolume = 80;
+    float masterVolumeGain = 0.0f;
+    boolean volumeMinusHover = false;
+    boolean volumePlusHover = false;
+    boolean volumeBarHover = false;
+    boolean settingsCloseHover = false;
 
     public static void main(String[] args) {
         createGame(new Game(), 60);
@@ -106,6 +124,154 @@ public class Game extends GameEngine{
 
         changeColor(255, 255, 255);
         drawBoldText(x + 35, y + 34, text, "Arial", 20);
+    }
+
+    private Image[] slicePlayerRow(Image sheet, int row) {
+        int spriteSize = 50;
+        Image[] frames = new Image[5];
+
+        for (int i = 0; i < frames.length; i++) {
+            frames[i] = subImage(sheet, i * spriteSize, row * spriteSize, spriteSize, spriteSize);
+        }
+
+        return frames;
+    }
+
+    private void applyCharacterSelection() {
+        if (player[0] == null || player[1] == null) {
+            return;
+        }
+
+        setPlayerSprites(player[0], isFemalePlayer(0));
+        setPlayerSprites(player[1], isFemalePlayer(1));
+    }
+
+    private void setPlayerSprites(player p, boolean female) {
+        if (female) {
+            p.setSprites(femaleStay, femaleLeft, femaleJump);
+        } else {
+            p.setSprites(maleStay, maleLeft, maleJump);
+        }
+    }
+
+    private boolean isFemalePlayer(int playerIndex) {
+        if (characterChoice == 1) {
+            return true;
+        }
+
+        if (characterChoice == 2) {
+            return playerIndex == 1;
+        }
+
+        return false;
+    }
+
+    private Image getPreviewImage(int playerIndex) {
+        if (isFemalePlayer(playerIndex)) {
+            return femaleStay[0];
+        }
+
+        return maleStay[0];
+    }
+
+    private void drawSelectedCharacters(double x, double y) {
+        changeColor(255, 255, 255);
+        drawBoldText(x, y, "Selected", "Arial", 18);
+
+        drawImage(getPreviewImage(0), x + 20, y + 18, 50, 50);
+        drawImage(getPreviewImage(1), x + 110, y + 18, 50, 50);
+
+        changeColor(220, 220, 220);
+        drawText(x + 31, y + 86, "P1", "Arial", 14);
+        drawText(x + 121, y + 86, "P2", "Arial", 14);
+    }
+
+    private void drawSettingsPanel() {
+        changeColor(0, 0, 0);
+        drawSolidRectangle(110, 65, 580, 330);
+
+        changeColor(255, 255, 255);
+        drawRectangle(110, 65, 580, 330, 3);
+
+        changeColor(255, 255, 255);
+        drawBoldText(145, 110, "SETTINGS", "Arial", 32);
+
+        if (settingsCloseHover) {
+            changeColor(100, 180, 255);
+        } else {
+            changeColor(60, 70, 95);
+        }
+        drawSolidRectangle(630, 85, 35, 35);
+
+        changeColor(255, 255, 255);
+        drawRectangle(630, 85, 35, 35, 2);
+        drawBoldText(640, 111, "X", "Arial", 18);
+
+        changeColor(220, 220, 220);
+        drawText(145, 150, "Characters", "Arial", 18);
+
+        drawCharacterChoiceButton(145, 170, 150, 45, "Two Male", 0);
+        drawCharacterChoiceButton(325, 170, 150, 45, "Two Female", 1);
+        drawCharacterChoiceButton(505, 170, 150, 45, "Mixed", 2);
+
+        changeColor(220, 220, 220);
+        drawText(145, 255, "Volume", "Arial", 18);
+
+        drawVolumeControl();
+    }
+
+    private void drawCharacterChoiceButton(double x, double y, double w, double h, String text, int choice) {
+        if (characterChoice == choice) {
+            changeColor(34, 139, 34);
+        } else if (hoveredCharacterChoice == choice) {
+            changeColor(100, 180, 255);
+        } else {
+            changeColor(60, 70, 95);
+        }
+
+        drawSolidRectangle(x, y, w, h);
+
+        changeColor(255, 255, 255);
+        drawRectangle(x, y, w, h, 2);
+        drawBoldText(x + 18, y + 30, text, "Arial", 16);
+    }
+
+    private void drawVolumeControl() {
+        if (volumeMinusHover) {
+            changeColor(100, 180, 255);
+        } else {
+            changeColor(60, 70, 95);
+        }
+        drawSolidRectangle(145, 275, 40, 40);
+
+        changeColor(255, 255, 255);
+        drawRectangle(145, 275, 40, 40, 2);
+        drawBoldText(159, 303, "-", "Arial", 22);
+
+        changeColor(80, 80, 80);
+        drawSolidRectangle(210, 290, 280, 10);
+
+        changeColor(100, 180, 255);
+        drawSolidRectangle(210, 290, 280 * masterVolume / 100.0, 10);
+
+        if (volumeBarHover) {
+            changeColor(255, 255, 255);
+            drawRectangle(210, 287, 280, 16, 2);
+        }
+
+        changeColor(255, 255, 255);
+        drawText(330, 330, masterVolume + "%", "Arial", 18);
+
+        if (volumePlusHover) {
+            changeColor(100, 180, 255);
+        } else {
+            changeColor(60, 70, 95);
+        }
+        drawSolidRectangle(515, 275, 40, 40);
+
+        changeColor(255, 255, 255);
+        drawRectangle(515, 275, 40, 40, 2);
+        drawBoldText(527, 303, "+", "Arial", 22);
     }
 
     public void drawPlayer(player player1, player player2){
@@ -276,33 +442,35 @@ public class Game extends GameEngine{
             clearBackground(width(), height());
 
             changeColor(255, 255, 255);
-            drawBoldText(210, 100, "You jump,I jump", "Arial", 42);
+            drawBoldText(210, 70, "You jump,I jump", "Arial", 42);
 
             changeColor(180, 180, 180);
-            drawText(265, 140, "Two Players Challenge Game", "Arial", 18);
+            drawText(265, 110, "Two Players Challenge Game", "Arial", 18);
 
             changeColor(100, 180, 255);
-            drawSolidRectangle(200, 160, 400, 4);
+            drawSolidRectangle(200, 130, 400, 4);
 
             changeColor(45, 50, 70);
-            drawSolidRectangle(70, 210, 260, 250);
+            drawSolidRectangle(70, 155, 260, 250);
 
             changeColor(255, 255, 255);
-            drawBoldText(95, 245, "Controls", "Arial", 24);
+            drawBoldText(95, 190, "Controls", "Arial", 24);
 
             changeColor(220, 220, 220);
-            drawText(95, 285, "Player 1:  W A D", "Arial", 18);
-            drawText(95, 315, "Player 2:  Arrow Keys", "Arial", 18);
-            drawText(95, 345, "Avoid traps", "Arial", 18);
-            drawText(95, 375, "Reach the goal together", "Arial", 18);
-            drawText(95, 405, "Defeat the final boss", "Arial", 18);
+            drawText(95, 225, "Player 1:  W A D", "Arial", 18);
+            drawText(95, 255, "Player 2:  Arrow Keys", "Arial", 18);
+            drawText(95, 285, "Avoid traps", "Arial", 18);
+            drawText(95, 315, "Reach the goal together", "Arial", 18);
 
-            drawMenuButton(460, 220, 220, 50, "START GAME", startHover);
-            drawMenuButton(460, 295, 220, 50, "HELP", helpHover);
-            drawMenuButton(460, 370, 220, 50, "QUIT", quitHover);
+            drawSelectedCharacters(95, 340);
+
+            drawMenuButton(460, 180, 220, 45, "START GAME", startHover);
+            drawMenuButton(460, 240, 220, 45, "HELP", helpHover);
+            drawMenuButton(460, 300, 220, 45, "SETTINGS", settingsHover);
+            drawMenuButton(460, 360, 220, 45, "QUIT", quitHover);
 
             changeColor(160, 160, 160);
-            drawText(230, 530, "Press ENTER to start | Press H for help | Press ESC to quit", "Arial", 16);
+            drawText(205, 430, "Press ENTER to start | Press H for help | Press ESC to quit", "Arial", 16);
 
             if (showHelp) {
                 changeColor(0, 0, 0);
@@ -319,6 +487,10 @@ public class Game extends GameEngine{
                 drawText(160, 280, "Some levels require cooperation.", "Arial", 18);
                 drawText(160, 315, "Final level contains a boss fight.", "Arial", 18);
                 drawText(160, 365, "Press H or click HELP again to close.", "Arial", 18);
+            }
+
+            if (showSettings) {
+                drawSettingsPanel();
             }
         }
         else if (currentLevel == -1) {
@@ -442,33 +614,26 @@ public class Game extends GameEngine{
     public void init(){
         setWindowSize(800, 450);
         currentLevel = 0;
+        updateMasterVolumeGain();
 
         level = new level1(loadImage("resources/bg1.png"));
-        Image playerSheet = loadImage("resources/playerMale.png");
+        Image malePlayerSheet = loadImage("resources/playerMale.png");
+        Image femalePlayerSheet = loadImage("resources/playerFamale.png");
         Image platformSheet = loadImage("resources/platform.png");
         Image gateSheet = loadImage("resources/gate.png");
         Image sawSheet = loadImage("resources/saw.png");
+        Image portalSheet = loadImage("resources/portal.png");
 
-        Image[] stay = new Image[5];
-        Image[] left = new Image[5];
-        Image[] jump = new Image[5];
+        maleStay = slicePlayerRow(malePlayerSheet, 0);
+        maleLeft = slicePlayerRow(malePlayerSheet, 1);
+        maleJump = slicePlayerRow(malePlayerSheet, 2);
+        femaleStay = slicePlayerRow(femalePlayerSheet, 0);
+        femaleLeft = slicePlayerRow(femalePlayerSheet, 1);
+        femaleJump = slicePlayerRow(femalePlayerSheet, 2);
 
-        int spriteSize = 50;
-
-        for (int i = 0; i < 5; i++) {
-            stay[i] = subImage(playerSheet, i * spriteSize, 0, spriteSize, spriteSize);
-        }
-
-        for (int i = 0; i < 5; i++) {
-            left[i] = subImage(playerSheet, i * spriteSize, spriteSize, spriteSize, spriteSize);
-        }
-
-        for (int i = 0; i < 5; i++) {
-            jump[i] = subImage(playerSheet, i * spriteSize, spriteSize * 2, spriteSize, spriteSize);
-        }
-
-        player[0] = new player(stay, left, jump);
-        player[1] = new player(stay, left, jump);
+        player[0] = new player(maleStay, maleLeft, maleJump);
+        player[1] = new player(maleStay, maleLeft, maleJump);
+        applyCharacterSelection();
 
         platformImage = new Image[4];
 
@@ -476,6 +641,13 @@ public class Game extends GameEngine{
         platformImage[1] = subImage(platformSheet, 100, 0, 100, 20);
         platformImage[2] = subImage(platformSheet, 0, 20, 100, 20);
         platformImage[3] = subImage(platformSheet, 100, 20, 100, 20);
+
+
+        portalImage = new Image[4];
+        portalImage[0] = subImage(portalSheet, 0, 0, 50, 50);
+        portalImage[1] = subImage(portalSheet, 50, 0, 50, 50);
+        portalImage[2] = subImage(portalSheet, 100, 0, 50, 50);
+        portalImage[3] = subImage(portalSheet, 150, 0, 50, 50);
 
         gateImage = new Image[5];
         for (int i = 0; i < 5; i++) {
@@ -491,7 +663,7 @@ public class Game extends GameEngine{
         sawFrames[1] = subImage(sawSheet, 50, 0, 50, 50);
         pitImage = loadImage("resources/pit.png");
         knifeImage = loadImage("resources/knife.png");
-        portalImage = loadImage("resources/portal.png");
+
         gameOverImage = loadImage("resources/oneplayersurvive.png");
         victoryImage = loadImage("resources/victory.png");
 
@@ -687,6 +859,37 @@ public class Game extends GameEngine{
     @Override
     public void keyPressed(KeyEvent event) {
         if (currentLevel == 0) {
+            if (showSettings) {
+                if (event.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                    showSettings = false;
+                }
+
+                if (event.getKeyCode() == KeyEvent.VK_1) {
+                    characterChoice = 0;
+                    applyCharacterSelection();
+                }
+
+                if (event.getKeyCode() == KeyEvent.VK_2) {
+                    characterChoice = 1;
+                    applyCharacterSelection();
+                }
+
+                if (event.getKeyCode() == KeyEvent.VK_3) {
+                    characterChoice = 2;
+                    applyCharacterSelection();
+                }
+
+                if (event.getKeyCode() == KeyEvent.VK_LEFT) {
+                    setMasterVolume(masterVolume - 10);
+                }
+
+                if (event.getKeyCode() == KeyEvent.VK_RIGHT) {
+                    setMasterVolume(masterVolume + 10);
+                }
+
+                return;
+            }
+
             if (event.getKeyCode() == KeyEvent.VK_ENTER) {
                 showLevelSelect = true;
                 currentLevel = -1;
@@ -694,6 +897,7 @@ public class Game extends GameEngine{
 
             if (event.getKeyCode() == KeyEvent.VK_H) {
                 showHelp = !showHelp;
+                showSettings = false;
             }
 
             if (event.getKeyCode() == KeyEvent.VK_ESCAPE) {
@@ -832,6 +1036,81 @@ public class Game extends GameEngine{
 
     }
 
+    private void updateSettingsHover() {
+        hoveredCharacterChoice = -1;
+        volumeMinusHover = false;
+        volumePlusHover = false;
+        volumeBarHover = false;
+        settingsCloseHover = false;
+
+        if (!showSettings) {
+            return;
+        }
+
+        if (isMouseInside(145, 170, 150, 45)) {
+            hoveredCharacterChoice = 0;
+        } else if (isMouseInside(325, 170, 150, 45)) {
+            hoveredCharacterChoice = 1;
+        } else if (isMouseInside(505, 170, 150, 45)) {
+            hoveredCharacterChoice = 2;
+        }
+
+        volumeMinusHover = isMouseInside(145, 275, 40, 40);
+        volumePlusHover = isMouseInside(515, 275, 40, 40);
+        volumeBarHover = isMouseInside(210, 282, 280, 26);
+        settingsCloseHover = isMouseInside(630, 85, 35, 35);
+    }
+
+    private void handleSettingsClick() {
+        if (settingsCloseHover) {
+            showSettings = false;
+            updateSettingsHover();
+            return;
+        }
+
+        if (hoveredCharacterChoice >= 0) {
+            characterChoice = hoveredCharacterChoice;
+            applyCharacterSelection();
+            return;
+        }
+
+        if (volumeMinusHover) {
+            setMasterVolume(masterVolume - 10);
+            return;
+        }
+
+        if (volumePlusHover) {
+            setMasterVolume(masterVolume + 10);
+            return;
+        }
+
+        if (volumeBarHover) {
+            int selectedVolume = (int)Math.round((mouseX - 210) / 280.0 * 100);
+            setMasterVolume(selectedVolume);
+        }
+    }
+
+    private void setMasterVolume(int volume) {
+        if (volume < 0) {
+            volume = 0;
+        }
+
+        if (volume > 100) {
+            volume = 100;
+        }
+
+        masterVolume = volume;
+        updateMasterVolumeGain();
+    }
+
+    private void updateMasterVolumeGain() {
+        if (masterVolume == 0) {
+            masterVolumeGain = -80.0f;
+        } else {
+            masterVolumeGain = (float)(20.0 * Math.log10(masterVolume / 100.0));
+        }
+    }
+
     @Override
     public void mouseMoved(MouseEvent event) {
 
@@ -839,9 +1118,11 @@ public class Game extends GameEngine{
         mouseY = event.getY();
 
         if (currentLevel == 0) {
-            startHover = isMouseInside(460, 220, 220, 50);
-            helpHover = isMouseInside(460, 295, 220, 50);
-            quitHover = isMouseInside(460, 370, 220, 50);
+            startHover = !showSettings && isMouseInside(460, 180, 220, 45);
+            helpHover = !showSettings && isMouseInside(460, 240, 220, 45);
+            settingsHover = !showSettings && isMouseInside(460, 300, 220, 45);
+            quitHover = !showSettings && isMouseInside(460, 360, 220, 45);
+            updateSettingsHover();
         } else if (currentLevel == -1) {
             hoveredLevelButton = -1;
             for (int i = 0; i < levelButtons.length; i++) {
@@ -873,17 +1154,30 @@ public class Game extends GameEngine{
         mouseY = event.getY();
 
         if (currentLevel == 0) {
+            updateSettingsHover();
 
-            if (isMouseInside(460, 220, 220, 50)) {
+            if (showSettings) {
+                handleSettingsClick();
+                return;
+            }
+
+            if (isMouseInside(460, 180, 220, 45)) {
                 showLevelSelect = true;
                 currentLevel = -1;
             }
 
-            if (isMouseInside(460, 295, 220, 50)) {
+            if (isMouseInside(460, 240, 220, 45)) {
                 showHelp = !showHelp;
+                showSettings = false;
             }
 
-            if (isMouseInside(460, 370, 220, 50)) {
+            if (isMouseInside(460, 300, 220, 45)) {
+                showSettings = true;
+                showHelp = false;
+                updateSettingsHover();
+            }
+
+            if (isMouseInside(460, 360, 220, 45)) {
                 System.exit(0);
             }
         } else if (currentLevel == -1) {

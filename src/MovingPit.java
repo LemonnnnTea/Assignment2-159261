@@ -1,50 +1,82 @@
 import java.awt.*;
 
-public class MovingPit extends Trap {
+public class MovingPit extends Platform {
 
-    double timer = 0;
-    double openTime;
-    double closeTime;
+    double targetX, targetY;
+    double speed;
+    double triggerDistance = 50;
 
-    boolean open = false;
+    boolean moving = false;
+    boolean finished = false;
 
     public MovingPit(double x, double y, double width, double height, double openTime, double closeTime, Image image) {
+        this(x, y, width, height, x, y + 80, 220, image);
+    }
+
+    public MovingPit(double x, double y, double width, double height,
+                     double targetX, double targetY, double speed,
+                     Image image) {
 
         super(x, y, width, height, image);
 
-        this.openTime = openTime;
-        this.closeTime = closeTime;
+        this.targetX = targetX;
+        this.targetY = targetY;
+        this.speed = speed;
     }
 
-    @Override
     public void update(double dt, player p1, player p2) {
-        timer += dt;
-
-        if (open && timer >= openTime) {
-            open = false;
-            timer = 0;
+        if (!moving && !finished && (isPlayerNear(p1) || isPlayerNear(p2))) {
+            moving = true;
         }
 
-        if (!open && timer >= closeTime) {
-            open = true;
-            timer = 0;
+        if (!moving) {
+            return;
         }
+
+        double dx = targetX - x;
+        double dy = targetY - y;
+        double distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance <= speed * dt || distance == 0) {
+            x = targetX;
+            y = targetY;
+            moving = false;
+            finished = true;
+            return;
+        }
+
+        x += dx / distance * speed * dt;
+        y += dy / distance * speed * dt;
     }
 
-    @Override
-    public boolean checkCollision(player p) {
-
-        if (!open) {
+    private boolean isPlayerNear(player p) {
+        if (p == null || p.dead || p.reachedGate) {
             return false;
         }
 
-        return CollisionManager.rectCollision(
-                p.x, p.y, p.width, p.height,
-                x, y, width, height
-        );
+        return distanceToPlayer(p) <= triggerDistance;
     }
 
-    public boolean isOpen() {
-        return open;
+    private double distanceToPlayer(player p) {
+        double dx = 0;
+        double dy = 0;
+
+        if (p.x + p.width < x) {
+            dx = x - (p.x + p.width);
+        } else if (p.x > x + width) {
+            dx = p.x - (x + width);
+        }
+
+        if (p.y + p.height < y) {
+            dy = y - (p.y + p.height);
+        } else if (p.y > y + height) {
+            dy = p.y - (y + height);
+        }
+
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    public boolean isMoving() {
+        return moving;
     }
 }
