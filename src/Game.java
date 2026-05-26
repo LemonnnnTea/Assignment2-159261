@@ -4,6 +4,53 @@ import java.awt.event.MouseEvent;
 
 public class Game extends GameEngine{
 
+    private static final int WINDOW_WIDTH = 1920;
+    private static final int WINDOW_HEIGHT = 1080;
+
+    private static final double MENU_BUTTON_X = 1320;
+    private static final double MENU_BUTTON_Y = 400;
+    private static final double MENU_BUTTON_W = 360;
+    private static final double MENU_BUTTON_H = 72;
+    private static final double MENU_BUTTON_GAP = 24;
+
+    private static final double SETTINGS_X = 500;
+    private static final double SETTINGS_Y = 210;
+    private static final double SETTINGS_W = 920;
+    private static final double SETTINGS_H = 560;
+    private static final double SETTINGS_CLOSE_X = 1350;
+    private static final double SETTINGS_CLOSE_Y = 250;
+    private static final double SETTINGS_CLOSE_SIZE = 46;
+    private static final double CHARACTER_BUTTON_Y = 410;
+    private static final double CHARACTER_BUTTON_W = 220;
+    private static final double CHARACTER_BUTTON_H = 64;
+    private static final double CHARACTER_BUTTON_1_X = 580;
+    private static final double CHARACTER_BUTTON_2_X = 850;
+    private static final double CHARACTER_BUTTON_3_X = 1120;
+    private static final double VOLUME_MINUS_X = 620;
+    private static final double VOLUME_BUTTON_Y = 610;
+    private static final double VOLUME_BUTTON_SIZE = 54;
+    private static final double VOLUME_BAR_X = 720;
+    private static final double VOLUME_BAR_Y = 630;
+    private static final double VOLUME_BAR_W = 440;
+    private static final double VOLUME_BAR_H = 14;
+    private static final double VOLUME_PLUS_X = 1210;
+
+    private static final double PAUSE_BUTTON_X = 780;
+    private static final double PAUSE_BUTTON_Y = 420;
+    private static final double PAUSE_BUTTON_W = 360;
+    private static final double PAUSE_BUTTON_H = 72;
+    private static final double PAUSE_BUTTON_GAP = 24;
+
+    private static final Color COLOR_PANEL = new Color(18, 24, 38, 225);
+    private static final Color COLOR_PANEL_SOLID = new Color(18, 24, 38);
+    private static final Color COLOR_PANEL_LIGHT = new Color(35, 45, 66);
+    private static final Color COLOR_ACCENT = new Color(86, 190, 255);
+    private static final Color COLOR_ACCENT_2 = new Color(255, 190, 85);
+    private static final Color COLOR_TEXT = new Color(245, 248, 255);
+    private static final Color COLOR_MUTED_TEXT = new Color(184, 194, 214);
+    private static final Color COLOR_GOOD = new Color(50, 170, 100);
+    private static final Color COLOR_LOCKED = new Color(70, 78, 96);
+
     level level;
     int currentLevel;
 
@@ -109,21 +156,79 @@ public class Game extends GameEngine{
         }
     }
 
-    public void drawMenuButton(double x, double y, double w, double h, String text, boolean hover) {
+    private double menuButtonY(int index) {
+        return MENU_BUTTON_Y + index * (MENU_BUTTON_H + MENU_BUTTON_GAP);
+    }
 
-        if (hover) {
-            changeColor(100, 180, 255);
+    private double pauseButtonY(int index) {
+        return PAUSE_BUTTON_Y + index * (PAUSE_BUTTON_H + PAUSE_BUTTON_GAP);
+    }
+
+    private void fillRoundRect(double x, double y, double w, double h, double arc, Color color) {
+        mGraphics.setColor(color);
+        mGraphics.fill(new java.awt.geom.RoundRectangle2D.Double(x, y, w, h, arc, arc));
+    }
+
+    private void drawRoundRect(double x, double y, double w, double h, double arc, double stroke, Color color) {
+        mGraphics.setColor(color);
+        mGraphics.setStroke(new BasicStroke((float)stroke));
+        mGraphics.draw(new java.awt.geom.RoundRectangle2D.Double(x, y, w, h, arc, arc));
+        mGraphics.setStroke(new BasicStroke(1.0f));
+    }
+
+    private void drawCenteredText(double x, double y, double w, String text, String font, int size, boolean bold, Color color) {
+        mGraphics.setColor(color);
+        mGraphics.setFont(new Font(font, bold ? Font.BOLD : Font.PLAIN, size));
+        FontMetrics metrics = mGraphics.getFontMetrics();
+        int textX = (int)(x + (w - metrics.stringWidth(text)) / 2);
+        mGraphics.drawString(text, textX, (int)y);
+    }
+
+    private void drawButtonLabel(double x, double y, double w, double h, String text, int size, Color color) {
+        mGraphics.setFont(new Font("Arial", Font.BOLD, size));
+        FontMetrics metrics = mGraphics.getFontMetrics();
+        int textX = (int)(x + (w - metrics.stringWidth(text)) / 2);
+        int textY = (int)(y + (h - metrics.getHeight()) / 2 + metrics.getAscent());
+        mGraphics.setColor(color);
+        mGraphics.drawString(text, textX, textY);
+    }
+
+    private void drawPanel(double x, double y, double w, double h) {
+        fillRoundRect(x, y, w, h, 8, COLOR_PANEL);
+        drawRoundRect(x, y, w, h, 8, 2, new Color(115, 135, 165));
+    }
+
+    private void drawScrim() {
+        mGraphics.setColor(new Color(0, 0, 0, 165));
+        mGraphics.fillRect(0, 0, width(), height());
+    }
+
+    private void drawMenuBackground() {
+        if (level != null && level.backgroundImage != null) {
+            drawImage(level.backgroundImage, 0, 0, width(), height());
         } else {
-            changeColor(60, 70, 95);
+            changeBackgroundColor(20, 26, 38);
+            clearBackground(width(), height());
         }
 
-        drawSolidRectangle(x, y, w, h);
+        mGraphics.setColor(new Color(10, 14, 24, 190));
+        mGraphics.fillRect(0, 0, width(), height());
 
-        changeColor(255, 255, 255);
-        drawRectangle(x, y, w, h, 2);
+        mGraphics.setColor(new Color(30, 45, 70, 180));
+        mGraphics.fillRect(0, 760, width(), 320);
 
-        changeColor(255, 255, 255);
-        drawBoldText(x + 35, y + 34, text, "Arial", 20);
+        mGraphics.setColor(new Color(58, 76, 105, 180));
+        mGraphics.fillRect(0, 840, width(), 8);
+        mGraphics.fillRect(0, 1010, width(), 8);
+    }
+
+    public void drawMenuButton(double x, double y, double w, double h, String text, boolean hover) {
+        Color fill = hover ? COLOR_ACCENT : COLOR_PANEL_LIGHT;
+        Color border = hover ? new Color(210, 240, 255) : new Color(105, 126, 160);
+
+        fillRoundRect(x, y, w, h, 8, fill);
+        drawRoundRect(x, y, w, h, 8, hover ? 3 : 2, border);
+        drawButtonLabel(x, y, w, h, text, 24, COLOR_TEXT);
     }
 
     private Image[] slicePlayerRow(Image sheet, int row) {
@@ -175,103 +280,114 @@ public class Game extends GameEngine{
     }
 
     private void drawSelectedCharacters(double x, double y) {
-        changeColor(255, 255, 255);
-        drawBoldText(x, y, "Selected", "Arial", 18);
+        changeColor(COLOR_TEXT);
+        drawBoldText(x, y, "Selected", "Arial", 26);
 
-        drawImage(getPreviewImage(0), x + 20, y + 18, 50, 50);
-        drawImage(getPreviewImage(1), x + 110, y + 18, 50, 50);
+        fillRoundRect(x, y + 28, 210, 150, 8, new Color(24, 32, 48));
+        drawRoundRect(x, y + 28, 210, 150, 8, 2, new Color(90, 110, 145));
 
-        changeColor(220, 220, 220);
-        drawText(x + 31, y + 86, "P1", "Arial", 14);
-        drawText(x + 121, y + 86, "P2", "Arial", 14);
+        drawImage(getPreviewImage(0), x + 38, y + 52, 70, 70);
+        drawImage(getPreviewImage(1), x + 122, y + 52, 70, 70);
+
+        changeColor(COLOR_MUTED_TEXT);
+        drawText(x + 57, y + 145, "P1", "Arial", 18);
+        drawText(x + 142, y + 145, "P2", "Arial", 18);
+    }
+
+    private void drawHelpPanel(String closeText) {
+        drawScrim();
+        drawPanel(520, 270, 880, 500);
+
+        changeColor(COLOR_TEXT);
+        drawBoldText(610, 360, "HELP", "Arial", 48);
+
+        changeColor(COLOR_MUTED_TEXT);
+        drawText(610, 430, "This is a two-player platform game.", "Arial", 26);
+        drawText(610, 480, "Both players must survive traps and moving hazards.", "Arial", 26);
+        drawText(610, 530, "Use portals and timing to reach the gate together.", "Arial", 26);
+        drawText(610, 580, "Player 1 uses W A D. Player 2 uses arrow keys.", "Arial", 26);
+
+        changeColor(COLOR_ACCENT_2);
+        drawText(610, 680, closeText, "Arial", 24);
     }
 
     private void drawSettingsPanel() {
-        changeColor(0, 0, 0);
-        drawSolidRectangle(110, 65, 580, 330);
+        drawScrim();
+        drawPanel(SETTINGS_X, SETTINGS_Y, SETTINGS_W, SETTINGS_H);
 
-        changeColor(255, 255, 255);
-        drawRectangle(110, 65, 580, 330, 3);
+        changeColor(COLOR_TEXT);
+        drawBoldText(SETTINGS_X + 80, SETTINGS_Y + 90, "SETTINGS", "Arial", 48);
 
-        changeColor(255, 255, 255);
-        drawBoldText(145, 110, "SETTINGS", "Arial", 32);
+        fillRoundRect(
+                SETTINGS_CLOSE_X,
+                SETTINGS_CLOSE_Y,
+                SETTINGS_CLOSE_SIZE,
+                SETTINGS_CLOSE_SIZE,
+                8,
+                settingsCloseHover ? COLOR_ACCENT : COLOR_PANEL_LIGHT
+        );
+        drawRoundRect(SETTINGS_CLOSE_X, SETTINGS_CLOSE_Y, SETTINGS_CLOSE_SIZE, SETTINGS_CLOSE_SIZE, 8, 2, new Color(135, 155, 190));
+        drawButtonLabel(SETTINGS_CLOSE_X, SETTINGS_CLOSE_Y, SETTINGS_CLOSE_SIZE, SETTINGS_CLOSE_SIZE, "X", 22, COLOR_TEXT);
 
-        if (settingsCloseHover) {
-            changeColor(100, 180, 255);
-        } else {
-            changeColor(60, 70, 95);
-        }
-        drawSolidRectangle(630, 85, 35, 35);
+        changeColor(COLOR_MUTED_TEXT);
+        drawText(SETTINGS_X + 80, SETTINGS_Y + 165, "Characters", "Arial", 24);
 
-        changeColor(255, 255, 255);
-        drawRectangle(630, 85, 35, 35, 2);
-        drawBoldText(640, 111, "X", "Arial", 18);
+        drawCharacterChoiceButton(CHARACTER_BUTTON_1_X, CHARACTER_BUTTON_Y, CHARACTER_BUTTON_W, CHARACTER_BUTTON_H, "Two Male", 0);
+        drawCharacterChoiceButton(CHARACTER_BUTTON_2_X, CHARACTER_BUTTON_Y, CHARACTER_BUTTON_W, CHARACTER_BUTTON_H, "Two Female", 1);
+        drawCharacterChoiceButton(CHARACTER_BUTTON_3_X, CHARACTER_BUTTON_Y, CHARACTER_BUTTON_W, CHARACTER_BUTTON_H, "Mixed", 2);
 
-        changeColor(220, 220, 220);
-        drawText(145, 150, "Characters", "Arial", 18);
-
-        drawCharacterChoiceButton(145, 170, 150, 45, "Two Male", 0);
-        drawCharacterChoiceButton(325, 170, 150, 45, "Two Female", 1);
-        drawCharacterChoiceButton(505, 170, 150, 45, "Mixed", 2);
-
-        changeColor(220, 220, 220);
-        drawText(145, 255, "Volume", "Arial", 18);
+        changeColor(COLOR_MUTED_TEXT);
+        drawText(SETTINGS_X + 80, SETTINGS_Y + 345, "Volume", "Arial", 24);
 
         drawVolumeControl();
     }
 
     private void drawCharacterChoiceButton(double x, double y, double w, double h, String text, int choice) {
+        Color fill;
         if (characterChoice == choice) {
-            changeColor(34, 139, 34);
+            fill = COLOR_GOOD;
         } else if (hoveredCharacterChoice == choice) {
-            changeColor(100, 180, 255);
+            fill = COLOR_ACCENT;
         } else {
-            changeColor(60, 70, 95);
+            fill = COLOR_PANEL_LIGHT;
         }
 
-        drawSolidRectangle(x, y, w, h);
-
-        changeColor(255, 255, 255);
-        drawRectangle(x, y, w, h, 2);
-        drawBoldText(x + 18, y + 30, text, "Arial", 16);
+        fillRoundRect(x, y, w, h, 8, fill);
+        drawRoundRect(x, y, w, h, 8, 2, new Color(125, 145, 178));
+        drawButtonLabel(x, y, w, h, text, 22, COLOR_TEXT);
     }
 
     private void drawVolumeControl() {
-        if (volumeMinusHover) {
-            changeColor(100, 180, 255);
-        } else {
-            changeColor(60, 70, 95);
-        }
-        drawSolidRectangle(145, 275, 40, 40);
+        fillRoundRect(
+                VOLUME_MINUS_X,
+                VOLUME_BUTTON_Y,
+                VOLUME_BUTTON_SIZE,
+                VOLUME_BUTTON_SIZE,
+                8,
+                volumeMinusHover ? COLOR_ACCENT : COLOR_PANEL_LIGHT
+        );
+        drawRoundRect(VOLUME_MINUS_X, VOLUME_BUTTON_Y, VOLUME_BUTTON_SIZE, VOLUME_BUTTON_SIZE, 8, 2, new Color(125, 145, 178));
+        drawButtonLabel(VOLUME_MINUS_X, VOLUME_BUTTON_Y, VOLUME_BUTTON_SIZE, VOLUME_BUTTON_SIZE, "-", 28, COLOR_TEXT);
 
-        changeColor(255, 255, 255);
-        drawRectangle(145, 275, 40, 40, 2);
-        drawBoldText(159, 303, "-", "Arial", 22);
-
-        changeColor(80, 80, 80);
-        drawSolidRectangle(210, 290, 280, 10);
-
-        changeColor(100, 180, 255);
-        drawSolidRectangle(210, 290, 280 * masterVolume / 100.0, 10);
+        fillRoundRect(VOLUME_BAR_X, VOLUME_BAR_Y, VOLUME_BAR_W, VOLUME_BAR_H, 8, new Color(70, 78, 94));
+        fillRoundRect(VOLUME_BAR_X, VOLUME_BAR_Y, VOLUME_BAR_W * masterVolume / 100.0, VOLUME_BAR_H, 8, COLOR_ACCENT);
 
         if (volumeBarHover) {
-            changeColor(255, 255, 255);
-            drawRectangle(210, 287, 280, 16, 2);
+            drawRoundRect(VOLUME_BAR_X - 4, VOLUME_BAR_Y - 8, VOLUME_BAR_W + 8, VOLUME_BAR_H + 16, 8, 2, COLOR_TEXT);
         }
 
-        changeColor(255, 255, 255);
-        drawText(330, 330, masterVolume + "%", "Arial", 18);
+        drawCenteredText(VOLUME_BAR_X, VOLUME_BAR_Y + 58, VOLUME_BAR_W, masterVolume + "%", "Arial", 22, false, COLOR_TEXT);
 
-        if (volumePlusHover) {
-            changeColor(100, 180, 255);
-        } else {
-            changeColor(60, 70, 95);
-        }
-        drawSolidRectangle(515, 275, 40, 40);
-
-        changeColor(255, 255, 255);
-        drawRectangle(515, 275, 40, 40, 2);
-        drawBoldText(527, 303, "+", "Arial", 22);
+        fillRoundRect(
+                VOLUME_PLUS_X,
+                VOLUME_BUTTON_Y,
+                VOLUME_BUTTON_SIZE,
+                VOLUME_BUTTON_SIZE,
+                8,
+                volumePlusHover ? COLOR_ACCENT : COLOR_PANEL_LIGHT
+        );
+        drawRoundRect(VOLUME_PLUS_X, VOLUME_BUTTON_Y, VOLUME_BUTTON_SIZE, VOLUME_BUTTON_SIZE, 8, 2, new Color(125, 145, 178));
+        drawButtonLabel(VOLUME_PLUS_X, VOLUME_BUTTON_Y, VOLUME_BUTTON_SIZE, VOLUME_BUTTON_SIZE, "+", 28, COLOR_TEXT);
     }
 
     public void drawPlayer(player player1, player player2){
@@ -328,11 +444,13 @@ public class Game extends GameEngine{
     }
 
     private void drawLevelSelectScreen() {
-        changeBackgroundColor(173, 216, 230);
-        clearBackground(width(), height());
+        drawMenuBackground();
 
-        changeColor(0, 0, 0);
-        drawBoldText(280, 50, "SELECT LEVEL", "Arial", 36);
+        changeColor(COLOR_TEXT);
+        drawBoldText(160, 150, "SELECT LEVEL", "Arial", 64);
+
+        changeColor(COLOR_MUTED_TEXT);
+        drawText(164, 205, "Unlocked stages are highlighted. Press ESC to return.", "Arial", 24);
 
         for (int i = 0; i < levelButtons.length - 1; i++) {
             LevelButton current = levelButtons[i];
@@ -343,26 +461,24 @@ public class Game extends GameEngine{
             double x2 = next.x + next.width / 2;
             double y2 = next.y + next.height / 2;
 
-            changeColor(100, 100, 100);
-            drawLine(x1, y1, x2, y2, 3);
+            changeColor(120, 140, 170);
+            drawLine(x1, y1, x2, y2, 5);
         }
 
         for (LevelButton button : levelButtons) {
-            if (button.unlocked) {
-                changeColor(34, 139, 34);
-            } else {
-                changeColor(0, 0, 139);
+            Color fill = button.unlocked ? COLOR_GOOD : COLOR_LOCKED;
+            if (hoveredLevelButton >= 0 && levelButtons[hoveredLevelButton] == button && button.unlocked) {
+                fill = COLOR_ACCENT;
             }
 
-            drawSolidRectangle(button.x, button.y, button.width, button.height);
+            fillRoundRect(button.x, button.y, button.width, button.height, 8, fill);
+            drawRoundRect(button.x, button.y, button.width, button.height, 8, 3, new Color(220, 235, 255));
 
-            changeColor(255, 255, 255);
-            drawRectangle(button.x, button.y, button.width, button.height, 2);
-
-            changeColor(255, 255, 255);
             String buttonText = button.unlocked ? "Level " + button.levelNumber : "Locked";
-            drawBoldText(button.x + 15, button.y + 30, buttonText, "Arial", 18);
+            drawButtonLabel(button.x, button.y, button.width, button.height, buttonText, 24, COLOR_TEXT);
         }
+
+        drawPanel(560, 310, 800, 150);
 
         if (hoveredLevelButton >= 0 && hoveredLevelButton < levelButtons.length) {
             LevelButton button = levelButtons[hoveredLevelButton];
@@ -371,7 +487,7 @@ public class Game extends GameEngine{
             double triangleY = button.y - 15;
             double triangleSize = 15;
 
-            changeColor(0, 0, 0);
+            changeColor(COLOR_TEXT);
 
             double[] xPoints = {triangleX - triangleSize / 2, triangleX + triangleSize / 2, triangleX};
             double[] yPoints = {triangleY - triangleSize, triangleY - triangleSize, triangleY};
@@ -381,24 +497,24 @@ public class Game extends GameEngine{
 
             mGraphics.fillPolygon(xIntPoints, yIntPoints, 3);
 
-            changeColor(0, 0, 0);
-            drawSolidRectangle(250, 20, 300, 50);
-
-            changeColor(255, 255, 255);
-            drawRectangle(250, 20, 300, 50, 2);
-
-            changeColor(255, 255, 255);
-            drawBoldText(265, 50, button.levelName, "Arial", 18);
+            drawCenteredText(560, 365, 800, button.levelName, "Arial", 30, true, COLOR_TEXT);
+            String stateText = button.unlocked ? "Ready to play" : "Complete the previous level to unlock";
+            drawCenteredText(560, 410, 800, stateText, "Arial", 20, false, COLOR_MUTED_TEXT);
         } else {
-            changeColor(0, 0, 0);
-            drawSolidRectangle(250, 20, 300, 50);
-
-            changeColor(255, 255, 255);
-            drawRectangle(250, 20, 300, 50, 2);
+            drawCenteredText(560, 365, 800, "Choose a stage", "Arial", 30, true, COLOR_TEXT);
+            drawCenteredText(560, 410, 800, "Level 1 has been rebuilt for the 1920 x 1080 map.", "Arial", 20, false, COLOR_MUTED_TEXT);
         }
+    }
 
-        changeColor(100, 100, 100);
-        drawText(250, 420, "Click on unlocked levels to play | Press ESC to go back", "Arial", 16);
+    private void drawInGameHud() {
+        fillRoundRect(36, 32, 420, 70, 8, new Color(12, 18, 28, 190));
+        drawRoundRect(36, 32, 420, 70, 8, 2, new Color(105, 126, 160));
+
+        changeColor(COLOR_TEXT);
+        drawBoldText(62, 77, "Level " + currentLevel, "Arial", 26);
+
+        changeColor(COLOR_MUTED_TEXT);
+        drawText(186, 77, "ESC: pause", "Arial", 22);
     }
 
     @Override
@@ -437,56 +553,41 @@ public class Game extends GameEngine{
     @Override
     public void paintComponent() {
         if (currentLevel == 0) {
+            drawMenuBackground();
 
-            changeBackgroundColor(25, 28, 40);
-            clearBackground(width(), height());
+            changeColor(COLOR_TEXT);
+            drawBoldText(160, 210, "You jump, I jump", "Arial", 82);
 
-            changeColor(255, 255, 255);
-            drawBoldText(210, 70, "You jump,I jump", "Arial", 42);
+            changeColor(COLOR_MUTED_TEXT);
+            drawText(166, 270, "Two players. One exit. Move together.", "Arial", 28);
 
-            changeColor(180, 180, 180);
-            drawText(265, 110, "Two Players Challenge Game", "Arial", 18);
+            changeColor(COLOR_ACCENT);
+            drawSolidRectangle(166, 308, 520, 6);
 
-            changeColor(100, 180, 255);
-            drawSolidRectangle(200, 130, 400, 4);
+            drawPanel(160, 390, 660, 420);
 
-            changeColor(45, 50, 70);
-            drawSolidRectangle(70, 155, 260, 250);
+            changeColor(COLOR_TEXT);
+            drawBoldText(210, 465, "Team Setup", "Arial", 36);
 
-            changeColor(255, 255, 255);
-            drawBoldText(95, 190, "Controls", "Arial", 24);
+            changeColor(COLOR_MUTED_TEXT);
+            drawText(210, 525, "Player 1", "Arial", 24);
+            drawText(360, 525, "W  A  D", "Arial", 26);
+            drawText(210, 575, "Player 2", "Arial", 24);
+            drawText(360, 575, "Arrow keys", "Arial", 26);
+            drawText(210, 635, "Both players must enter the gate.", "Arial", 24);
 
-            changeColor(220, 220, 220);
-            drawText(95, 225, "Player 1:  W A D", "Arial", 18);
-            drawText(95, 255, "Player 2:  Arrow Keys", "Arial", 18);
-            drawText(95, 285, "Avoid traps", "Arial", 18);
-            drawText(95, 315, "Reach the goal together", "Arial", 18);
+            drawSelectedCharacters(210, 705);
 
-            drawSelectedCharacters(95, 340);
+            drawMenuButton(MENU_BUTTON_X, menuButtonY(0), MENU_BUTTON_W, MENU_BUTTON_H, "START GAME", startHover);
+            drawMenuButton(MENU_BUTTON_X, menuButtonY(1), MENU_BUTTON_W, MENU_BUTTON_H, "HELP", helpHover);
+            drawMenuButton(MENU_BUTTON_X, menuButtonY(2), MENU_BUTTON_W, MENU_BUTTON_H, "SETTINGS", settingsHover);
+            drawMenuButton(MENU_BUTTON_X, menuButtonY(3), MENU_BUTTON_W, MENU_BUTTON_H, "QUIT", quitHover);
 
-            drawMenuButton(460, 180, 220, 45, "START GAME", startHover);
-            drawMenuButton(460, 240, 220, 45, "HELP", helpHover);
-            drawMenuButton(460, 300, 220, 45, "SETTINGS", settingsHover);
-            drawMenuButton(460, 360, 220, 45, "QUIT", quitHover);
-
-            changeColor(160, 160, 160);
-            drawText(205, 430, "Press ENTER to start | Press H for help | Press ESC to quit", "Arial", 16);
+            changeColor(COLOR_MUTED_TEXT);
+            drawText(MENU_BUTTON_X, 830, "ENTER: start    H: help    ESC: quit", "Arial", 22);
 
             if (showHelp) {
-                changeColor(0, 0, 0);
-                drawSolidRectangle(120, 120, 560, 330);
-
-                changeColor(255, 255, 255);
-                drawRectangle(120, 120, 560, 330, 3);
-
-                drawBoldText(285, 165, "HELP", "Arial", 34);
-
-                changeColor(220, 220, 220);
-                drawText(160, 210, "This is a two-player platform game.", "Arial", 18);
-                drawText(160, 245, "Both players must survive traps.", "Arial", 18);
-                drawText(160, 280, "Some levels require cooperation.", "Arial", 18);
-                drawText(160, 315, "Final level contains a boss fight.", "Arial", 18);
-                drawText(160, 365, "Press H or click HELP again to close.", "Arial", 18);
+                drawHelpPanel("Press H or click HELP again to close.");
             }
 
             if (showSettings) {
@@ -523,87 +624,65 @@ public class Game extends GameEngine{
                 }
             }
 
+            drawInGameHud();
+
             if (gamePaused) {
-                changeColor(0, 0, 0);
-                drawSolidRectangle(0, 0, width(), height());
+                drawScrim();
+                drawPanel(660, 250, 600, 610);
 
-                changeColor(255, 255, 255);
-                drawBoldText(320, 80, "PAUSED", "Arial", 42);
+                drawCenteredText(660, 360, 600, "PAUSED", "Arial", 58, true, COLOR_TEXT);
 
-                drawMenuButton(280, 120, 240, 50, "RESUME", pauseResumeHover);
-                drawMenuButton(280, 190, 240, 50, "QUIT", pauseQuitLevelHover);
-                drawMenuButton(280, 260, 240, 50, "HELP", pauseHelpHover);
-                drawMenuButton(280, 330, 240, 50, "MENU", pauseMenuHover);
+                drawMenuButton(PAUSE_BUTTON_X, pauseButtonY(0), PAUSE_BUTTON_W, PAUSE_BUTTON_H, "RESUME", pauseResumeHover);
+                drawMenuButton(PAUSE_BUTTON_X, pauseButtonY(1), PAUSE_BUTTON_W, PAUSE_BUTTON_H, "QUIT LEVEL", pauseQuitLevelHover);
+                drawMenuButton(PAUSE_BUTTON_X, pauseButtonY(2), PAUSE_BUTTON_W, PAUSE_BUTTON_H, "HELP", pauseHelpHover);
+                drawMenuButton(PAUSE_BUTTON_X, pauseButtonY(3), PAUSE_BUTTON_W, PAUSE_BUTTON_H, "MAIN MENU", pauseMenuHover);
 
                 if (showPauseHelp) {
-                    changeColor(0, 0, 0);
-                    drawSolidRectangle(120, 120, 560, 330);
-
-                    changeColor(255, 255, 255);
-                    drawRectangle(120, 120, 560, 330, 3);
-
-                    drawBoldText(285, 165, "HELP", "Arial", 34);
-
-                    changeColor(220, 220, 220);
-                    drawText(160, 210, "This is a two-player platform game.", "Arial", 18);
-                    drawText(160, 245, "Both players must survive traps.", "Arial", 18);
-                    drawText(160, 280, "Some levels require cooperation.", "Arial", 18);
-                    drawText(160, 315, "Final level contains a boss fight.", "Arial", 18);
-                    drawText(160, 365, "Press ESC to close help.", "Arial", 18);
+                    drawHelpPanel("Press ESC to close help.");
                 }
             }
 
 
             if (gameOver) {
-                changeColor(0, 0, 0);
-                drawSolidRectangle(0, 0, width(), height());
+                drawScrim();
+                drawPanel(560, 210, 800, 650);
 
                 if (gameOverImage != null) {
-                    double imageWidth = 400;
-                    double imageHeight = 300;
+                    double imageWidth = 520;
+                    double imageHeight = 360;
                     double imageX = (width() - imageWidth) / 2;
-                    double imageY = (height() - imageHeight) / 2 - 50;
+                    double imageY = 300;
                     drawImage(gameOverImage, imageX, imageY, imageWidth, imageHeight);
                 }
 
 
-                changeColor(255, 255, 255);
-                drawText(220, 370, "Press R to restart", "Arial", 24);
+                drawCenteredText(560, 735, 800, "Press R to restart", "Arial", 30, false, COLOR_TEXT);
             }
 
             if (levelComplete) {
-                changeColor(0, 0, 0);
-                drawSolidRectangle(0, 0, width(), height());
+                drawScrim();
+                drawPanel(520, 190, 880, 700);
 
                 if (showAllLevelsComplete) {
-                    changeColor(255, 215, 0);
-                    drawBoldText(180, 150, "Congratulations!", "Arial", 42);
-
-                    changeColor(255, 255, 255);
-                    drawText(120, 220, "You have completed all the levels.", "Arial", 24);
+                    drawCenteredText(520, 340, 880, "Congratulations!", "Arial", 58, true, new Color(255, 215, 0));
+                    drawCenteredText(520, 425, 880, "You have completed all the levels.", "Arial", 30, false, COLOR_TEXT);
 
                     int countdown = 3 - (int)allLevelsCompleteTimer;
                     if (countdown < 0) countdown = 0;
 
-                    changeColor(200, 200, 200);
                     String countdownText = "Returning to level select... " + countdown;
-                    drawText(260, 350, countdownText, "Arial", 18);
+                    drawCenteredText(520, 590, 880, countdownText, "Arial", 24, false, COLOR_MUTED_TEXT);
                 } else {
                     if (victoryImage != null) {
-                        double imageWidth = 400;
-                        double imageHeight = 300;
+                        double imageWidth = 520;
+                        double imageHeight = 360;
                         double imageX = (width() - imageWidth) / 2;
-                        double imageY = (height() - imageHeight) / 2 - 50;
+                        double imageY = 260;
                         drawImage(victoryImage, imageX, imageY, imageWidth, imageHeight);
                     }
 
-                    changeColor(255, 215, 0);
-                    drawBoldText(280, 320, "VICTORY!", "Arial", 42);
-
-                    changeColor(255, 255, 255);
-                    drawText(180, 370, "Press SPACE for next level", "Arial", 20);
-                    drawText(220, 400, "Press R to restart", "Arial", 20);
-                    drawText(200, 430, "Press ESC to return to level select", "Arial", 18);
+                    drawCenteredText(520, 675, 880, "VICTORY!", "Arial", 58, true, new Color(255, 215, 0));
+                    drawCenteredText(520, 740, 880, "SPACE: next level    R: restart    ESC: level select", "Arial", 24, false, COLOR_TEXT);
                 }
             }
         }
@@ -612,7 +691,7 @@ public class Game extends GameEngine{
 
     @Override
     public void init(){
-        setWindowSize(800, 450);
+        setWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
         currentLevel = 0;
         updateMasterVolumeGain();
 
@@ -688,19 +767,14 @@ public class Game extends GameEngine{
     private void initializeLevelButtons() {
         levelButtons = new LevelButton[5];
 
-        double buttonWidth = 100;
-        double buttonHeight = 50;
+        double buttonWidth = 170;
+        double buttonHeight = 86;
 
-        double startX = 100;
-        double startY = 150;
-        double spacingX = 180;
-        double spacingY = 100;
-
-        levelButtons[0] = new LevelButton(1, startX, startY, buttonWidth, buttonHeight, "Level 1: First Steps", true);
-        levelButtons[1] = new LevelButton(2, startX + spacingX, startY, buttonWidth, buttonHeight, "Level 2: Double Trouble", false);
-        levelButtons[2] = new LevelButton(3, startX + spacingX * 2, startY, buttonWidth, buttonHeight, "Level 3: Portal Jump", false);
-        levelButtons[3] = new LevelButton(4, startX + spacingX * 2, startY + spacingY, buttonWidth, buttonHeight, "Level 4: Moving Danger", false);
-        levelButtons[4] = new LevelButton(5, startX + spacingX, startY + spacingY, buttonWidth, buttonHeight, "Level 5: Boss Fight", false);
+        levelButtons[0] = new LevelButton(1, 260, 720, buttonWidth, buttonHeight, "Level 1: Skybridge Run", true);
+        levelButtons[1] = new LevelButton(2, 620, 560, buttonWidth, buttonHeight, "Level 2: Double Trouble", false);
+        levelButtons[2] = new LevelButton(3, 980, 700, buttonWidth, buttonHeight, "Level 3: Portal Jump", false);
+        levelButtons[3] = new LevelButton(4, 1320, 500, buttonWidth, buttonHeight, "Level 4: Moving Danger", false);
+        levelButtons[4] = new LevelButton(5, 1500, 760, buttonWidth, buttonHeight, "Level 5: Boss Fight", false);
     }
 
     private void restartLevel() {
@@ -1047,18 +1121,18 @@ public class Game extends GameEngine{
             return;
         }
 
-        if (isMouseInside(145, 170, 150, 45)) {
+        if (isMouseInside(CHARACTER_BUTTON_1_X, CHARACTER_BUTTON_Y, CHARACTER_BUTTON_W, CHARACTER_BUTTON_H)) {
             hoveredCharacterChoice = 0;
-        } else if (isMouseInside(325, 170, 150, 45)) {
+        } else if (isMouseInside(CHARACTER_BUTTON_2_X, CHARACTER_BUTTON_Y, CHARACTER_BUTTON_W, CHARACTER_BUTTON_H)) {
             hoveredCharacterChoice = 1;
-        } else if (isMouseInside(505, 170, 150, 45)) {
+        } else if (isMouseInside(CHARACTER_BUTTON_3_X, CHARACTER_BUTTON_Y, CHARACTER_BUTTON_W, CHARACTER_BUTTON_H)) {
             hoveredCharacterChoice = 2;
         }
 
-        volumeMinusHover = isMouseInside(145, 275, 40, 40);
-        volumePlusHover = isMouseInside(515, 275, 40, 40);
-        volumeBarHover = isMouseInside(210, 282, 280, 26);
-        settingsCloseHover = isMouseInside(630, 85, 35, 35);
+        volumeMinusHover = isMouseInside(VOLUME_MINUS_X, VOLUME_BUTTON_Y, VOLUME_BUTTON_SIZE, VOLUME_BUTTON_SIZE);
+        volumePlusHover = isMouseInside(VOLUME_PLUS_X, VOLUME_BUTTON_Y, VOLUME_BUTTON_SIZE, VOLUME_BUTTON_SIZE);
+        volumeBarHover = isMouseInside(VOLUME_BAR_X, VOLUME_BAR_Y - 12, VOLUME_BAR_W, VOLUME_BAR_H + 24);
+        settingsCloseHover = isMouseInside(SETTINGS_CLOSE_X, SETTINGS_CLOSE_Y, SETTINGS_CLOSE_SIZE, SETTINGS_CLOSE_SIZE);
     }
 
     private void handleSettingsClick() {
@@ -1085,7 +1159,7 @@ public class Game extends GameEngine{
         }
 
         if (volumeBarHover) {
-            int selectedVolume = (int)Math.round((mouseX - 210) / 280.0 * 100);
+            int selectedVolume = (int)Math.round((mouseX - VOLUME_BAR_X) / VOLUME_BAR_W * 100);
             setMasterVolume(selectedVolume);
         }
     }
@@ -1118,10 +1192,10 @@ public class Game extends GameEngine{
         mouseY = event.getY();
 
         if (currentLevel == 0) {
-            startHover = !showSettings && isMouseInside(460, 180, 220, 45);
-            helpHover = !showSettings && isMouseInside(460, 240, 220, 45);
-            settingsHover = !showSettings && isMouseInside(460, 300, 220, 45);
-            quitHover = !showSettings && isMouseInside(460, 360, 220, 45);
+            startHover = !showSettings && isMouseInside(MENU_BUTTON_X, menuButtonY(0), MENU_BUTTON_W, MENU_BUTTON_H);
+            helpHover = !showSettings && isMouseInside(MENU_BUTTON_X, menuButtonY(1), MENU_BUTTON_W, MENU_BUTTON_H);
+            settingsHover = !showSettings && isMouseInside(MENU_BUTTON_X, menuButtonY(2), MENU_BUTTON_W, MENU_BUTTON_H);
+            quitHover = !showSettings && isMouseInside(MENU_BUTTON_X, menuButtonY(3), MENU_BUTTON_W, MENU_BUTTON_H);
             updateSettingsHover();
         } else if (currentLevel == -1) {
             hoveredLevelButton = -1;
@@ -1132,10 +1206,10 @@ public class Game extends GameEngine{
                 }
             }
         }  else if (currentLevel >= 1 && currentLevel <= 5 && gamePaused && !showPauseHelp) {
-            pauseResumeHover = isMouseInside(280, 120, 240, 50);
-            pauseQuitLevelHover = isMouseInside(280, 190, 240, 50);
-            pauseHelpHover = isMouseInside(280, 260, 240, 50);
-            pauseMenuHover = isMouseInside(280, 330, 240, 50);
+            pauseResumeHover = isMouseInside(PAUSE_BUTTON_X, pauseButtonY(0), PAUSE_BUTTON_W, PAUSE_BUTTON_H);
+            pauseQuitLevelHover = isMouseInside(PAUSE_BUTTON_X, pauseButtonY(1), PAUSE_BUTTON_W, PAUSE_BUTTON_H);
+            pauseHelpHover = isMouseInside(PAUSE_BUTTON_X, pauseButtonY(2), PAUSE_BUTTON_W, PAUSE_BUTTON_H);
+            pauseMenuHover = isMouseInside(PAUSE_BUTTON_X, pauseButtonY(3), PAUSE_BUTTON_W, PAUSE_BUTTON_H);
         }
     }
 
@@ -1161,23 +1235,23 @@ public class Game extends GameEngine{
                 return;
             }
 
-            if (isMouseInside(460, 180, 220, 45)) {
+            if (isMouseInside(MENU_BUTTON_X, menuButtonY(0), MENU_BUTTON_W, MENU_BUTTON_H)) {
                 showLevelSelect = true;
                 currentLevel = -1;
             }
 
-            if (isMouseInside(460, 240, 220, 45)) {
+            if (isMouseInside(MENU_BUTTON_X, menuButtonY(1), MENU_BUTTON_W, MENU_BUTTON_H)) {
                 showHelp = !showHelp;
                 showSettings = false;
             }
 
-            if (isMouseInside(460, 300, 220, 45)) {
+            if (isMouseInside(MENU_BUTTON_X, menuButtonY(2), MENU_BUTTON_W, MENU_BUTTON_H)) {
                 showSettings = true;
                 showHelp = false;
                 updateSettingsHover();
             }
 
-            if (isMouseInside(460, 360, 220, 45)) {
+            if (isMouseInside(MENU_BUTTON_X, menuButtonY(3), MENU_BUTTON_W, MENU_BUTTON_H)) {
                 System.exit(0);
             }
         } else if (currentLevel == -1) {
@@ -1188,21 +1262,21 @@ public class Game extends GameEngine{
             }
         }
         else if (currentLevel >= 1 && currentLevel <= 5 && gamePaused && !showPauseHelp) {
-            if (isMouseInside(280, 120, 240, 50)) {
+            if (isMouseInside(PAUSE_BUTTON_X, pauseButtonY(0), PAUSE_BUTTON_W, PAUSE_BUTTON_H)) {
                 gamePaused = false;
             }
 
-            if (isMouseInside(280, 190, 240, 50)) {
+            if (isMouseInside(PAUSE_BUTTON_X, pauseButtonY(1), PAUSE_BUTTON_W, PAUSE_BUTTON_H)) {
                 gamePaused = false;
                 showLevelSelect = true;
                 currentLevel = -1;
             }
 
-            if (isMouseInside(280, 260, 240, 50)) {
+            if (isMouseInside(PAUSE_BUTTON_X, pauseButtonY(2), PAUSE_BUTTON_W, PAUSE_BUTTON_H)) {
                 showPauseHelp = true;
             }
 
-            if (isMouseInside(280, 330, 240, 50)) {
+            if (isMouseInside(PAUSE_BUTTON_X, pauseButtonY(3), PAUSE_BUTTON_W, PAUSE_BUTTON_H)) {
                 gamePaused = false;
                 currentLevel = 0;
                 showLevelSelect = false;

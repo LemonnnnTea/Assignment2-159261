@@ -1,6 +1,9 @@
 import java.awt.*;
 
 public class player {
+    private static final int WORLD_WIDTH = 1920;
+    private static final int WORLD_HEIGHT = 1080;
+
     double x, y;
     int height = 50, width = 50;
     Image[] jump, left, stay;
@@ -72,8 +75,8 @@ public class player {
         updateAnimation(dt);
 
 
-        if (y + height >= 450) {
-            y = 450 - height;
+        if (y + height >= WORLD_HEIGHT) {
+            y = WORLD_HEIGHT - height;
             velocityY = 0;
             onGround = true;
             dead = true;
@@ -86,8 +89,8 @@ public class player {
         }
 
 
-        if (x + width >= 800) {
-            x = 800 - width;
+        if (x + width >= WORLD_WIDTH) {
+            x = WORLD_WIDTH - width;
             velocityX = 0;
             dead = true;
         }
@@ -104,7 +107,7 @@ public class player {
             dead = true;
         }
 
-        if (y > 500) {
+        if (y > WORLD_HEIGHT + 50) {
             dead = true;
         }
 
@@ -112,7 +115,7 @@ public class player {
             dead = true;
         }
 
-        if (x + width > 850) {
+        if (x + width > WORLD_WIDTH + 50) {
             dead = true;
         }
     }

@@ -25,11 +25,11 @@ public class level1 extends level {
         traps.clear();
         portals.clear();
 
-        spawnX1 = 60;
-        spawnY1 = 300;
+        spawnX1 = 120;
+        spawnY1 = 880;
 
-        spawnX2 = 120;
-        spawnY2 = 300;
+        spawnX2 = 190;
+        spawnY2 = 880;
 
         player1.x = spawnX1;
         player1.y = spawnY1;
@@ -37,53 +37,60 @@ public class level1 extends level {
         player2.x = spawnX2;
         player2.y = spawnY2;
 
-        goalX = 700;
-        goalY = 300;
-        goalWidth = 70;
-        goalHeight = 100;
+        goalX = 1800;
+        goalY = 850;
+        goalWidth = 50;
+        goalHeight = 50;
 
-        platforms.add(new Platform(0, 400, 220, 50, platformImage[(int)(Math.random() * 4)]));
-        platforms.add(new Platform(300, 360, 160, 40, platformImage[(int)(Math.random() * 4)]));
-        platforms.add(new Platform(540, 320, 240, 40, platformImage[(int)(Math.random() * 4)]));
+        platforms.add(new Platform(0, 930, 430, 70, platformImage[(int)(Math.random() * 4)]));
+        platforms.add(new Platform(500, 880, 230, 45, platformImage[(int)(Math.random() * 4)]));
+        platforms.add(new Platform(800, 820, 260, 45, platformImage[(int)(Math.random() * 4)]));
+        platforms.add(new Platform(1110, 820, 260, 45, platformImage[(int)(Math.random() * 4)]));
+        platforms.add(new Platform(1640, 900, 280, 65, platformImage[(int)(Math.random() * 4)]));
 
-        traps.add(new Spike(230, 350, 50, 50, spikeImage));
-
+        traps.add(new Spike(430, 880, 55, 50, spikeImage));
+        traps.add(new Spike(1210, 770, 55, 50, spikeImage));
 
         traps.add(new Saw(
-                340, 310,
-                50, 50,
-                430, 310,
-                120,
+                930, 765,
+                60, 60,
+                1030, 765,
+                155,
                 sawFrames
         ));
 
-
-
-
         platforms.add(new MovingPit(
-                500, 370,
-                80, 30,
-                500, 450,
-                220,
+                1410, 850,
+                170, 45,
+                1410, 930,
+                140,
                 platformImage[(int)(Math.random() * 4)]
         ));
 
         traps.add(new FlyingKnife(
-                760, 250,
-                50, 20,
+                1840, 790,
+                70, 28,
                 -1, 0,
-                350,
-                230,
-                600,
+                470,
+                280,
+                720,
                 knifeImage
         ));
 
         portals.add(new Portal(
-                170, 350,
-                40, 50,
-                560, 260,
+                350, 865,
+                55, 65,
+                815, 770,
                 portalImage
         ));
-        gate = new Gate(750, 270, 50, 50, gateImage);
+
+        portals.add(new Portal(
+                1320, 755,
+                55, 65,
+                1660, 850,
+                portalImage
+        ));
+
+        gate = new Gate(1800, 850, 50, 50, gateImage);
     }
 }
