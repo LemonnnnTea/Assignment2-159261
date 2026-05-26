@@ -24,6 +24,7 @@ public class level1 extends level {
         platforms.clear();
         traps.clear();
         portals.clear();
+        portalParticles.clear();
 
         spawnX1 = 120;
         spawnY1 = 880;

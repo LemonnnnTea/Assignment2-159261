@@ -44,8 +44,8 @@ public class FlyingKnife extends Trap {
         }
 
         if (!triggered) {
-            double d1 = CollisionManager.distance(x, y, p1.x, p1.y);
-            double d2 = CollisionManager.distance(x, y, p2.x, p2.y);
+            double d1 = playerCanTrigger(p1) ? CollisionManager.distance(x, y, p1.x, p1.y) : Double.MAX_VALUE;
+            double d2 = playerCanTrigger(p2) ? CollisionManager.distance(x, y, p2.x, p2.y) : Double.MAX_VALUE;
 
             if (d1 <= triggerDistance || d2 <= triggerDistance) {
                 triggered = true;
@@ -62,6 +62,10 @@ public class FlyingKnife extends Trap {
                 active = false;
             }
         }
+    }
+
+    private boolean playerCanTrigger(player p) {
+        return p != null && !p.dead && !p.reachedGate;
     }
 
     @Override

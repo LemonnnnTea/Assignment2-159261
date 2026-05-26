@@ -73,6 +73,9 @@ public class Game extends GameEngine{
     boolean gamePaused = false;
     Image gameOverImage;
     Image victoryImage;
+    Image deadPigImage;
+    AudioClip deadSound;
+    AudioClip winSound;
 
     boolean pauseReturnHover = false;
     boolean pauseHelpHover = false;
@@ -147,6 +150,10 @@ public class Game extends GameEngine{
 
         for (Portal portal : Level.getPortals()) {
             drawPortal(portal);
+        }
+
+        for (PortalParticle particle : Level.getPortalParticles()) {
+            drawPortalParticle(particle);
         }
 
         for (Trap trap : Level.getTraps()) {
@@ -392,18 +399,8 @@ public class Game extends GameEngine{
 
     public void drawPlayer(player player1, player player2){
 
-        if(player1.faceRight){
-            drawImage(player1.getCurrentImage(), player1.x + 50, player1.y, -player1.width, player1.height);
-        }else{
-            drawImage(player1.getCurrentImage(), player1.x, player1.y, player1.width, player1.height);
-
-        }
-
-        if(player2.faceRight){
-            drawImage(player2.getCurrentImage(), player2.x + 50, player2.y, -player2.width, player2.height);
-        }else{
-            drawImage(player2.getCurrentImage(), player2.x, player2.y, player2.width, player2.height);
-        }
+        drawSinglePlayer(player1);
+        drawSinglePlayer(player2);
 
     }
 
@@ -431,7 +428,29 @@ public class Game extends GameEngine{
         );
     }
 
+    private void drawPortalParticle(PortalParticle particle) {
+        int alpha = (int)(220 * particle.alphaRatio());
+        if (alpha <= 0) {
+            return;
+        }
+
+        Color color = new Color(
+                particle.color.getRed(),
+                particle.color.getGreen(),
+                particle.color.getBlue(),
+                alpha
+        );
+
+        changeColor(color);
+        drawSolidCircle(particle.x, particle.y, particle.radius);
+    }
+
     private void drawSinglePlayer(player p) {
+        if (p.dead && deadPigImage != null) {
+            drawImage(deadPigImage, p.x, p.y, p.width, p.height);
+            return;
+        }
+
         if (p.faceRight) {
             drawImage(p.getCurrentImage(), p.x + 50, p.y, -p.width, p.height);
         } else {
@@ -520,18 +539,30 @@ public class Game extends GameEngine{
     @Override
     public void update(double dt) {
         if (currentLevel >= 1 && currentLevel <= 5 && !gameOver && !levelComplete && !gamePaused) {
+            boolean player1WasDead = player[0].dead;
+            boolean player2WasDead = player[1].dead;
+
             level.update(dt);
 
-            if (level.isLevelComplete()) {
+            if (!player1WasDead && player[0].dead) {
+                playSound(deadSound);
+            }
+
+            if (!player2WasDead && player[1].dead) {
+                playSound(deadSound);
+            }
+
+            if (onePlayerReachedGate()) {
+                gameOver = true;
+            } else if (level.isLevelComplete()) {
                 levelComplete = true;
                 levelCompleteTimer = 0;
+                playSound(winSound);
 
                 if (currentLevel == 5) {
                     showAllLevelsComplete = true;
                     allLevelsCompleteTimer = 0;
                 }
-            } else if (player[0].dead || player[1].dead) {
-                gameOver = true;
             }
         }
 
@@ -548,6 +579,14 @@ public class Game extends GameEngine{
                 showLevelSelect = true;
             }
         }
+    }
+
+    private boolean onePlayerReachedGate() {
+        return player[0].reachedGate != player[1].reachedGate;
+    }
+
+    private void playSound(AudioClip sound) {
+        playAudio(sound, masterVolumeGain);
     }
 
     @Override
@@ -745,6 +784,9 @@ public class Game extends GameEngine{
 
         gameOverImage = loadImage("resources/oneplayersurvive.png");
         victoryImage = loadImage("resources/victory.png");
+        deadPigImage = loadImage("resources/deadPig.png");
+        deadSound = loadAudio("resources/dead.wav");
+        winSound = loadAudio("resources/win.wav");
 
 
         level = new level1(loadImage("resources/bg1.png"));
@@ -1029,79 +1071,71 @@ public class Game extends GameEngine{
             }
 
             if(event.getKeyCode() == KeyEvent.VK_LEFT){
-                if (!player[1].reachedGate) {
+                if (canControlPlayer(player[1])) {
                     player[1].leftPressed = true;
                 }
             }
 
             if(event.getKeyCode() == KeyEvent.VK_RIGHT){
-                if (!player[1].reachedGate) {
+                if (canControlPlayer(player[1])) {
                     player[1].rightPressed = true;
                 }
             }
 
             if(event.getKeyCode() == KeyEvent.VK_UP){
-                if (!player[1].reachedGate) {
+                if (canControlPlayer(player[1])) {
                     player[1].jumpPressed = true;
                 }
             }
 
             if(event.getKeyCode() == KeyEvent.VK_A){
-                if (!player[0].reachedGate) {
+                if (canControlPlayer(player[0])) {
                     player[0].leftPressed = true;
                 }
             }
 
             if(event.getKeyCode() == KeyEvent.VK_D){
-                if (!player[0].reachedGate) {
+                if (canControlPlayer(player[0])) {
                     player[0].rightPressed = true;
                 }
             }
 
             if(event.getKeyCode() == KeyEvent.VK_W){
-                if (!player[0].reachedGate) {
+                if (canControlPlayer(player[0])) {
                     player[0].jumpPressed = true;
                 }
             }
         }
     }
 
+    private boolean canControlPlayer(player p) {
+        return p != null && !p.dead && !p.reachedGate;
+    }
+
     @Override
     public void keyReleased(KeyEvent event) {
 
         if (event.getKeyCode() == KeyEvent.VK_LEFT) {
-            if (!player[1].reachedGate) {
-                player[1].leftPressed = false;
-            }
+            player[1].leftPressed = false;
         }
 
         if (event.getKeyCode() == KeyEvent.VK_RIGHT) {
-            if (!player[1].reachedGate) {
-                player[1].rightPressed = false;
-            }
+            player[1].rightPressed = false;
         }
 
         if (event.getKeyCode() == KeyEvent.VK_UP) {
-            if (!player[1].reachedGate) {
-                player[1].jumpPressed = false;
-            }
+            player[1].jumpPressed = false;
         }
         if (event.getKeyCode() == KeyEvent.VK_A) {
-            if (!player[0].reachedGate) {
-                player[0].leftPressed = false;
-            }
+            player[0].leftPressed = false;
         }
 
         if (event.getKeyCode() == KeyEvent.VK_D) {
-            if (!player[0].reachedGate) {
-                player[0].rightPressed = false;
-            }
+            player[0].rightPressed = false;
         }
 
         if (event.getKeyCode() == KeyEvent.VK_W) {
-            if (!player[0].reachedGate) {
-                player[0].jumpPressed = false;
-            }
+            player[0].jumpPressed = false;
         }
     }
 

@@ -21,7 +21,7 @@ public abstract class Trap {
     public abstract boolean checkCollision(player p);
 
     public void onCollide(player p) {
-        p.dead = true;
+        p.die();
     }
 
     public boolean isActive() {

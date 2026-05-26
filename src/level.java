@@ -2,6 +2,7 @@ import java.awt.*;
 import java.util.ArrayList;
 
 public abstract class level {
+    private static final double RESPAWN_DELAY = 1.0;
 
     Image backgroundImage;
 
@@ -11,6 +12,7 @@ public abstract class level {
     ArrayList<Platform> platforms = new ArrayList<>();
     ArrayList<Trap> traps = new ArrayList<>();
     ArrayList<Portal> portals = new ArrayList<>();
+    ArrayList<PortalParticle> portalParticles = new ArrayList<>();
     Gate gate;
 
     double spawnX1, spawnY1;
@@ -36,11 +38,13 @@ public abstract class level {
 
     public void update(double dt) {
 
-        if (!player1.reachedGate) {
+        updateDeadPlayers(dt);
+
+        if (isPlayerActive(player1)) {
             player1.updatePlayer(dt);
         }
 
-        if (!player2.reachedGate) {
+        if (isPlayerActive(player2)) {
             player2.updatePlayer(dt);
         }
 
@@ -50,24 +54,26 @@ public abstract class level {
             portal.update(dt);
         }
 
-        boolean player1Teleported = handlePortals(player1);
-        boolean player2Teleported = handlePortals(player2);
+        updatePortalParticles(dt);
 
-        if (!player1.reachedGate) {
+        boolean player1Teleported = isPlayerActive(player1) && handlePortals(player1);
+        boolean player2Teleported = isPlayerActive(player2) && handlePortals(player2);
+
+        if (isPlayerActive(player1)) {
             handlePlatformCollision(player1);
         }
 
-        if (!player2.reachedGate) {
+        if (isPlayerActive(player2)) {
             handlePlatformCollision(player2);
         }
 
         handlePlayerCollision();
 
-        if (!player1Teleported) {
+        if (!player1Teleported && isPlayerActive(player1)) {
             handlePortals(player1);
         }
 
-        if (!player2Teleported) {
+        if (!player2Teleported && isPlayerActive(player2)) {
             handlePortals(player2);
         }
 
@@ -79,20 +85,20 @@ public abstract class level {
 
             trap.update(dt, player1, player2);
 
-            if (!player1.reachedGate && trap.checkCollision(player1)) {
+            if (isPlayerActive(player1) && trap.checkCollision(player1)) {
                 trap.onCollide(player1);
             }
 
-            if (!player2.reachedGate && trap.checkCollision(player2)) {
+            if (isPlayerActive(player2) && trap.checkCollision(player2)) {
                 trap.onCollide(player2);
             }
         }
 
-        if (!player1.reachedGate) {
+        if (isPlayerActive(player1)) {
             handleGate(player1);
         }
 
-        if (!player2.reachedGate) {
+        if (isPlayerActive(player2)) {
             handleGate(player2);
         }
 
@@ -100,6 +106,27 @@ public abstract class level {
             gate.update(dt);
         }
 
+    }
+
+    private boolean isPlayerActive(player p) {
+        return p != null && !p.dead && !p.reachedGate;
+    }
+
+    private void updateDeadPlayers(double dt) {
+        updateDeadPlayer(player1, spawnX1, spawnY1, dt);
+        updateDeadPlayer(player2, spawnX2, spawnY2, dt);
+    }
+
+    private void updateDeadPlayer(player p, double spawnX, double spawnY, double dt) {
+        if (p == null || !p.dead) {
+            return;
+        }
+
+        p.updateDeadTimer(dt);
+
+        if (p.deadTimer >= RESPAWN_DELAY) {
+            p.respawn(spawnX, spawnY);
+        }
     }
 
     private void handlePlatformCollision(player p) {
@@ -226,13 +253,15 @@ public abstract class level {
     }
 
     private boolean handlePortals(player p) {
-        if (p.reachedGate) {
+        if (!isPlayerActive(p)) {
             return false;
         }
 
         for (Portal portal : portals) {
             if (portal.checkCollision(p)) {
+                createPortalParticles(portal.x + portal.width / 2, portal.y + portal.height / 2);
                 portal.teleport(p);
+                createPortalParticles(p.x + p.width / 2, p.y + p.height / 2);
                 return true;
             }
         }
@@ -240,6 +269,10 @@ public abstract class level {
         return false;
     }
     private void handleGate(player p) {
+        if (!isPlayerActive(p)) {
+            return;
+        }
+
         if (gate != null && gate.checkCollision(p)) {
             if (p == player1) {
                 gate.playerReach(1);
@@ -248,16 +281,6 @@ public abstract class level {
                 gate.playerReach(2);
                 player2.reachedGate = true;
             }
-        }
-    }
-
-    private void respawnIfDead(player p, double spawnX, double spawnY) {
-        if (p.dead) {
-            p.x = spawnX;
-            p.y = spawnY;
-            p.velocityX = 0;
-            p.velocityY = 0;
-            p.dead = false;
         }
     }
 
@@ -289,5 +312,42 @@ public abstract class level {
 
     public ArrayList<Portal> getPortals() {
         return portals;
+    }
+
+    public ArrayList<PortalParticle> getPortalParticles() {
+        return portalParticles;
+    }
+
+    private void updatePortalParticles(double dt) {
+        for (int i = portalParticles.size() - 1; i >= 0; i--) {
+            PortalParticle particle = portalParticles.get(i);
+            particle.update(dt);
+
+            if (!particle.isAlive()) {
+                portalParticles.remove(i);
+            }
+        }
+    }
+
+    private void createPortalParticles(double centerX, double centerY) {
+        for (int i = 0; i < 24; i++) {
+            double angle = Math.PI * 2 * i / 24.0 + Math.random() * 0.35;
+            double speed = 90 + Math.random() * 170;
+            double radius = 4 + Math.random() * 6;
+            double life = 0.35 + Math.random() * 0.35;
+            Color color = i % 2 == 0
+                    ? new Color(90, 220, 255)
+                    : new Color(255, 120, 240);
+
+            portalParticles.add(new PortalParticle(
+                    centerX,
+                    centerY,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed,
+                    radius,
+                    life,
+                    color
+            ));
+        }
     }
 }

@@ -27,6 +27,7 @@ public class player {
     boolean onGround = false;
 
     boolean dead = false;
+    double deadTimer = 0;
 
     boolean reachedGate = false;
 
@@ -49,6 +50,15 @@ public class player {
     }
 
     public void updatePlayer(double dt) {
+
+        if (dead) {
+            velocityX = 0;
+            velocityY = 0;
+            leftPressed = false;
+            rightPressed = false;
+            jumpPressed = false;
+            return;
+        }
 
         velocityX = 0;
 
@@ -79,45 +89,78 @@ public class player {
             y = WORLD_HEIGHT - height;
             velocityY = 0;
             onGround = true;
-            dead = true;
+            die();
         }
 
         if(y - height < -50){
             y = 0;
             velocityY = 0;
-            dead = true;
+            die();
         }
 
 
         if (x + width >= WORLD_WIDTH) {
             x = WORLD_WIDTH - width;
             velocityX = 0;
-            dead = true;
+            die();
         }
 
         if (x - width < -50) {
             x = 0;
             velocityX = 0;
-            dead = true;
+            die();
         }
 
 
         // 超出地图死亡
         if (y < -50) {
-            dead = true;
+            die();
         }
 
         if (y > WORLD_HEIGHT + 50) {
-            dead = true;
+            die();
         }
 
         if (x < -50) {
-            dead = true;
+            die();
         }
 
         if (x + width > WORLD_WIDTH + 50) {
-            dead = true;
+            die();
         }
+    }
+
+    public void die() {
+        if (dead) {
+            return;
+        }
+
+        dead = true;
+        deadTimer = 0;
+        velocityX = 0;
+        velocityY = 0;
+        leftPressed = false;
+        rightPressed = false;
+        jumpPressed = false;
+    }
+
+    public void updateDeadTimer(double dt) {
+        if (dead) {
+            deadTimer += dt;
+        }
+    }
+
+    public void respawn(double spawnX, double spawnY) {
+        x = spawnX;
+        y = spawnY;
+        velocityX = 0;
+        velocityY = 0;
+        leftPressed = false;
+        rightPressed = false;
+        jumpPressed = false;
+        onGround = false;
+        dead = false;
+        deadTimer = 0;
     }
 
     private void updateAnimation(double dt) {
