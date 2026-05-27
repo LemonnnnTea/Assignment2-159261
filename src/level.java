@@ -14,6 +14,7 @@ public abstract class level {
     ArrayList<Portal> portals = new ArrayList<>();
     ArrayList<PortalParticle> portalParticles = new ArrayList<>();
     Gate gate;
+    private boolean playerTeleportedThisFrame;
 
     double spawnX1, spawnY1;
     double spawnX2, spawnY2;
@@ -37,6 +38,7 @@ public abstract class level {
     );
 
     public void update(double dt) {
+        playerTeleportedThisFrame = false;
 
         updateDeadPlayers(dt);
 
@@ -261,6 +263,7 @@ public abstract class level {
             if (portal.checkCollision(p)) {
                 createPortalParticles(portal.x + portal.width / 2, portal.y + portal.height / 2);
                 portal.teleport(p);
+                playerTeleportedThisFrame = true;
                 createPortalParticles(p.x + p.width / 2, p.y + p.height / 2);
                 return true;
             }
@@ -296,6 +299,10 @@ public abstract class level {
     }
     public boolean isLevelComplete() {
         return gate != null && gate.isCompleted();
+    }
+
+    public boolean didTeleport() {
+        return playerTeleportedThisFrame;
     }
 
     public Gate getGate() {

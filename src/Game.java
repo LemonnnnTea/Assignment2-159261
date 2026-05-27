@@ -76,6 +76,7 @@ public class Game extends GameEngine{
     Image deadPigImage;
     AudioClip deadSound;
     AudioClip winSound;
+    AudioClip transSound;
 
     boolean pauseReturnHover = false;
     boolean pauseHelpHover = false;
@@ -91,6 +92,9 @@ public class Game extends GameEngine{
     double allLevelsCompleteTimer = 0;
 
     int maxUnlockedLevel = 1;
+    int[] playerScores = new int[2];
+    int[] levelDeaths = new int[2];
+    int winningPlayer = 0;
 
     class LevelButton {
         int levelNumber;
@@ -310,8 +314,8 @@ public class Game extends GameEngine{
 
         changeColor(COLOR_MUTED_TEXT);
         drawText(610, 430, "This is a two-player platform game.", "Arial", 26);
-        drawText(610, 480, "Both players must survive traps and moving hazards.", "Arial", 26);
-        drawText(610, 530, "Use portals and timing to reach the gate together.", "Arial", 26);
+        drawText(610, 480, "The first pig to enter the gate wins the level.", "Arial", 26);
+        drawText(610, 530, "Use portals and timing to race past hazards.", "Arial", 26);
         drawText(610, 580, "Player 1 uses W A D. Player 2 uses arrow keys.", "Arial", 26);
 
         changeColor(COLOR_ACCENT_2);
@@ -471,6 +475,10 @@ public class Game extends GameEngine{
         changeColor(COLOR_MUTED_TEXT);
         drawText(164, 205, "Unlocked stages are highlighted. Press ESC to return.", "Arial", 24);
 
+        drawPanel(1420, 110, 340, 120);
+        drawCenteredText(1420, 160, 340, "SCORE", "Arial", 28, true, COLOR_TEXT);
+        drawCenteredText(1420, 205, 340, "P1: " + playerScores[0] + "    P2: " + playerScores[1], "Arial", 24, false, COLOR_TEXT);
+
         for (int i = 0; i < levelButtons.length - 1; i++) {
             LevelButton current = levelButtons[i];
             LevelButton next = levelButtons[i + 1];
@@ -526,14 +534,14 @@ public class Game extends GameEngine{
     }
 
     private void drawInGameHud() {
-        fillRoundRect(36, 32, 420, 70, 8, new Color(12, 18, 28, 190));
-        drawRoundRect(36, 32, 420, 70, 8, 2, new Color(105, 126, 160));
+        fillRoundRect(36, 32, 520, 70, 8, new Color(12, 18, 28, 190));
+        drawRoundRect(36, 32, 520, 70, 8, 2, new Color(105, 126, 160));
 
         changeColor(COLOR_TEXT);
         drawBoldText(62, 77, "Level " + currentLevel, "Arial", 26);
 
         changeColor(COLOR_MUTED_TEXT);
-        drawText(186, 77, "ESC: pause", "Arial", 22);
+        drawText(186, 77, "Score  P1: " + playerScores[0] + "    P2: " + playerScores[1], "Arial", 22);
     }
 
     @Override
@@ -544,25 +552,23 @@ public class Game extends GameEngine{
 
             level.update(dt);
 
+            if (level.didTeleport()) {
+                playSound(transSound);
+            }
+
             if (!player1WasDead && player[0].dead) {
+                levelDeaths[0]++;
                 playSound(deadSound);
             }
 
             if (!player2WasDead && player[1].dead) {
+                levelDeaths[1]++;
                 playSound(deadSound);
             }
 
-            if (onePlayerReachedGate()) {
-                gameOver = true;
-            } else if (level.isLevelComplete()) {
-                levelComplete = true;
-                levelCompleteTimer = 0;
-                playSound(winSound);
-
-                if (currentLevel == 5) {
-                    showAllLevelsComplete = true;
-                    allLevelsCompleteTimer = 0;
-                }
+            int reachedPlayer = getReachedGatePlayer();
+            if (reachedPlayer != 0) {
+                completeLevel(reachedPlayer);
             }
         }
 
@@ -581,8 +587,40 @@ public class Game extends GameEngine{
         }
     }
 
-    private boolean onePlayerReachedGate() {
-        return player[0].reachedGate != player[1].reachedGate;
+    private int getReachedGatePlayer() {
+        if (player[0].reachedGate) {
+            return 1;
+        }
+
+        if (player[1].reachedGate) {
+            return 2;
+        }
+
+        return 0;
+    }
+
+    private void completeLevel(int playerNumber) {
+        winningPlayer = playerNumber;
+        playerScores[playerNumber - 1]++;
+        levelComplete = true;
+        levelCompleteTimer = 0;
+        playSound(winSound);
+
+        if (currentLevel < 5 && currentLevel + 1 > maxUnlockedLevel) {
+            maxUnlockedLevel = currentLevel + 1;
+            updateLevelButtons();
+        }
+
+        if (currentLevel == 5) {
+            showAllLevelsComplete = true;
+            allLevelsCompleteTimer = 0;
+        }
+    }
+
+    private void resetLevelStats() {
+        levelDeaths[0] = 0;
+        levelDeaths[1] = 0;
+        winningPlayer = 0;
     }
 
     private void playSound(AudioClip sound) {
@@ -613,7 +651,7 @@ public class Game extends GameEngine{
             drawText(360, 525, "W  A  D", "Arial", 26);
             drawText(210, 575, "Player 2", "Arial", 24);
             drawText(360, 575, "Arrow keys", "Arial", 26);
-            drawText(210, 635, "Both players must enter the gate.", "Arial", 24);
+            drawText(210, 635, "First pig into the gate scores.", "Arial", 24);
 
             drawSelectedCharacters(210, 705);
 
@@ -705,12 +743,14 @@ public class Game extends GameEngine{
                 if (showAllLevelsComplete) {
                     drawCenteredText(520, 340, 880, "Congratulations!", "Arial", 58, true, new Color(255, 215, 0));
                     drawCenteredText(520, 425, 880, "You have completed all the levels.", "Arial", 30, false, COLOR_TEXT);
+                    drawCenteredText(520, 485, 880, "Winner: P" + winningPlayer + "    P1 deaths: " + levelDeaths[0] + "    P2 deaths: " + levelDeaths[1], "Arial", 24, false, COLOR_TEXT);
+                    drawCenteredText(520, 530, 880, "Score  P1: " + playerScores[0] + "    P2: " + playerScores[1], "Arial", 24, false, COLOR_TEXT);
 
                     int countdown = 3 - (int)allLevelsCompleteTimer;
                     if (countdown < 0) countdown = 0;
 
                     String countdownText = "Returning to level select... " + countdown;
-                    drawCenteredText(520, 590, 880, countdownText, "Arial", 24, false, COLOR_MUTED_TEXT);
+                    drawCenteredText(520, 610, 880, countdownText, "Arial", 24, false, COLOR_MUTED_TEXT);
                 } else {
                     if (victoryImage != null) {
                         double imageWidth = 520;
@@ -721,7 +761,9 @@ public class Game extends GameEngine{
                     }
 
                     drawCenteredText(520, 675, 880, "VICTORY!", "Arial", 58, true, new Color(255, 215, 0));
-                    drawCenteredText(520, 740, 880, "SPACE: next level    R: restart    ESC: level select", "Arial", 24, false, COLOR_TEXT);
+                    drawCenteredText(520, 715, 880, "Winner: P" + winningPlayer + "    P1 deaths: " + levelDeaths[0] + "    P2 deaths: " + levelDeaths[1], "Arial", 24, false, COLOR_TEXT);
+                    drawCenteredText(520, 750, 880, "Score  P1: " + playerScores[0] + "    P2: " + playerScores[1], "Arial", 24, false, COLOR_TEXT);
+                    drawCenteredText(520, 790, 880, "SPACE: next level    R: restart    ESC: level select", "Arial", 24, false, COLOR_TEXT);
                 }
             }
         }
@@ -787,6 +829,7 @@ public class Game extends GameEngine{
         deadPigImage = loadImage("resources/deadPig.png");
         deadSound = loadAudio("resources/dead.wav");
         winSound = loadAudio("resources/win.wav");
+        transSound = loadAudio("resources/trans.wav");
 
 
         level = new level1(loadImage("resources/bg1.png"));
@@ -822,6 +865,8 @@ public class Game extends GameEngine{
     private void restartLevel() {
         gameOver = false;
         levelComplete = false;
+        showAllLevelsComplete = false;
+        resetLevelStats();
 
         if (currentLevel == 1) {
             level = new level1(loadImage("resources/bg1.png"));
@@ -871,6 +916,8 @@ public class Game extends GameEngine{
     private void nextLevel() {
         gameOver = false;
         levelComplete = false;
+        showAllLevelsComplete = false;
+        resetLevelStats();
 
         currentLevel++;
 
@@ -926,6 +973,8 @@ public class Game extends GameEngine{
         showLevelSelect = false;
         gameOver = false;
         levelComplete = false;
+        showAllLevelsComplete = false;
+        resetLevelStats();
 
         if (levelNumber == 1) {
             level = new level1(loadImage("resources/bg1.png"));

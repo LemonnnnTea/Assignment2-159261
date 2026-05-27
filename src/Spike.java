@@ -16,7 +16,7 @@ public class Spike extends Trap {
     @Override
     public boolean checkCollision(player p) {
         double collisionX = x + (width - COLLISION_WIDTH) / 2;
-        double collisionY = y;
+        double collisionY = y + height - COLLISION_HEIGHT;
 
         return CollisionManager.rectCollision(
                 p.x, p.y, p.width, p.height,

@@ -80,7 +80,7 @@ public class Gate {
                     state = GateState.CLOSED;
 
                     // 第二个人动画结束后才完成
-                    if (player1Reached && player2Reached) {
+                    if (player1Reached || player2Reached) {
                         completed = true;
                     }
                 }
