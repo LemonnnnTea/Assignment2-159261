@@ -6,6 +6,7 @@ public class Game extends GameEngine{
 
     private static final int WINDOW_WIDTH = 1920;
     private static final int WINDOW_HEIGHT = 1080;
+    private static final int LAST_IMPLEMENTED_LEVEL = 4;
 
     private static final double MENU_BUTTON_X = 1320;
     private static final double MENU_BUTTON_Y = 400;
@@ -91,7 +92,7 @@ public class Game extends GameEngine{
     boolean showAllLevelsComplete = false;
     double allLevelsCompleteTimer = 0;
 
-    int maxUnlockedLevel = 1;
+    int maxUnlockedLevel = LAST_IMPLEMENTED_LEVEL;
     int[] playerScores = new int[2];
     int[] levelDeaths = new int[2];
     int winningPlayer = 0;
@@ -117,7 +118,7 @@ public class Game extends GameEngine{
     int hoveredLevelButton = -1;
     String levelDescription = "";
 
-    Image[] platformImage;
+    Image platformImage;
     Image spikeImage;
     Image[] sawFrames;
     Image pitImage;
@@ -152,6 +153,10 @@ public class Game extends GameEngine{
             drawPlatform(platform);
         }
 
+        for (WindVent windVent : Level.getWindVents()) {
+            drawWindVent(windVent);
+        }
+
         for (Portal portal : Level.getPortals()) {
             drawPortal(portal);
         }
@@ -161,7 +166,7 @@ public class Game extends GameEngine{
         }
 
         for (Trap trap : Level.getTraps()) {
-            if (trap.isActive()) {
+            if (trap.isVisible()) {
                 drawTrap(trap);
             }
         }
@@ -176,32 +181,33 @@ public class Game extends GameEngine{
     }
 
     private void fillRoundRect(double x, double y, double w, double h, double arc, Color color) {
-        mGraphics.setColor(color);
-        mGraphics.fill(new java.awt.geom.RoundRectangle2D.Double(x, y, w, h, arc, arc));
+        changeColor(color);
+        drawSolidRectangle(x, y, w, h);
     }
 
     private void drawRoundRect(double x, double y, double w, double h, double arc, double stroke, Color color) {
-        mGraphics.setColor(color);
-        mGraphics.setStroke(new BasicStroke((float)stroke));
-        mGraphics.draw(new java.awt.geom.RoundRectangle2D.Double(x, y, w, h, arc, arc));
-        mGraphics.setStroke(new BasicStroke(1.0f));
+        changeColor(color);
+        drawRectangle(x, y, w, h, stroke);
     }
 
     private void drawCenteredText(double x, double y, double w, String text, String font, int size, boolean bold, Color color) {
-        mGraphics.setColor(color);
-        mGraphics.setFont(new Font(font, bold ? Font.BOLD : Font.PLAIN, size));
-        FontMetrics metrics = mGraphics.getFontMetrics();
-        int textX = (int)(x + (w - metrics.stringWidth(text)) / 2);
-        mGraphics.drawString(text, textX, (int)y);
+        changeColor(color);
+        double textWidth = text.length() * size * 0.55;
+        double textX = x + (w - textWidth) / 2;
+
+        if (bold) {
+            drawBoldText(textX, y, text, font, size);
+        } else {
+            drawText(textX, y, text, font, size);
+        }
     }
 
     private void drawButtonLabel(double x, double y, double w, double h, String text, int size, Color color) {
-        mGraphics.setFont(new Font("Arial", Font.BOLD, size));
-        FontMetrics metrics = mGraphics.getFontMetrics();
-        int textX = (int)(x + (w - metrics.stringWidth(text)) / 2);
-        int textY = (int)(y + (h - metrics.getHeight()) / 2 + metrics.getAscent());
-        mGraphics.setColor(color);
-        mGraphics.drawString(text, textX, textY);
+        changeColor(color);
+        double textWidth = text.length() * size * 0.58;
+        double textX = x + (w - textWidth) / 2;
+        double textY = y + (h + size * 0.7) / 2;
+        drawBoldText(textX, textY, text, "Arial", size);
     }
 
     private void drawPanel(double x, double y, double w, double h) {
@@ -210,8 +216,8 @@ public class Game extends GameEngine{
     }
 
     private void drawScrim() {
-        mGraphics.setColor(new Color(0, 0, 0, 165));
-        mGraphics.fillRect(0, 0, width(), height());
+        changeColor(new Color(0, 0, 0, 165));
+        drawSolidRectangle(0, 0, width(), height());
     }
 
     private void drawMenuBackground() {
@@ -222,15 +228,15 @@ public class Game extends GameEngine{
             clearBackground(width(), height());
         }
 
-        mGraphics.setColor(new Color(10, 14, 24, 190));
-        mGraphics.fillRect(0, 0, width(), height());
+        changeColor(new Color(10, 14, 24, 190));
+        drawSolidRectangle(0, 0, width(), height());
 
-        mGraphics.setColor(new Color(30, 45, 70, 180));
-        mGraphics.fillRect(0, 760, width(), 320);
+        changeColor(new Color(30, 45, 70, 180));
+        drawSolidRectangle(0, 760, width(), 320);
 
-        mGraphics.setColor(new Color(58, 76, 105, 180));
-        mGraphics.fillRect(0, 840, width(), 8);
-        mGraphics.fillRect(0, 1010, width(), 8);
+        changeColor(new Color(58, 76, 105, 180));
+        drawSolidRectangle(0, 840, width(), 8);
+        drawSolidRectangle(0, 1010, width(), 8);
     }
 
     public void drawMenuButton(double x, double y, double w, double h, String text, boolean hover) {
@@ -409,17 +415,81 @@ public class Game extends GameEngine{
     }
 
     private void drawTrap(Trap trap) {
+        if (trap instanceof FlyingKnife) {
+            drawFlyingKnife((FlyingKnife)trap);
+            return;
+        }
+
+        if (trap instanceof FakeGateTrap) {
+            drawFakeGateTrap((FakeGateTrap)trap);
+            return;
+        }
+
         drawImage(trap.image, trap.x, trap.y, trap.width, trap.height);
     }
 
+    private void drawFlyingKnife(FlyingKnife knife) {
+        saveCurrentTransform();
+        translate(knife.x + knife.width / 2, knife.y + knife.height / 2);
+        rotate(knife.getDirectionAngleDegrees());
+        drawImage(knife.image, -knife.width / 2, -knife.height / 2, knife.width, knife.height);
+        restoreLastTransform();
+    }
+
+    private void drawFakeGateTrap(FakeGateTrap fakeGate) {
+        drawImage(fakeGate.getDoorImage(), fakeGate.x, fakeGate.y, fakeGate.width, fakeGate.height);
+
+        if (fakeGate.isSpikeVisible()) {
+            drawImage(
+                    fakeGate.getSpikeImage(),
+                    fakeGate.getSpikeX(),
+                    fakeGate.getSpikeY(),
+                    fakeGate.width,
+                    fakeGate.height
+            );
+        }
+    }
+
+    private void drawWindVent(WindVent windVent) {
+        changeColor(new Color(95, 220, 255, 35));
+        drawSolidRectangle(windVent.zoneX, windVent.zoneY, windVent.zoneWidth, windVent.zoneHeight);
+
+        changeColor(new Color(55, 165, 210, 210));
+        drawSolidRectangle(windVent.x + 8, windVent.y + 10, windVent.width - 16, 6);
+        drawSolidRectangle(windVent.x + 8, windVent.y + 22, windVent.width - 16, 6);
+        drawSolidRectangle(windVent.x + 8, windVent.y + 34, windVent.width - 16, 6);
+
+        for (WindParticle particle : windVent.getParticles()) {
+            int alpha = (int)(190 * particle.alphaRatio());
+
+            if (alpha <= 0) {
+                continue;
+            }
+
+            changeColor(new Color(
+                    particle.color.getRed(),
+                    particle.color.getGreen(),
+                    particle.color.getBlue(),
+                    alpha
+            ));
+            drawSolidCircle(particle.x, particle.y, particle.radius);
+        }
+    }
+
     private void drawPlatform(Platform platform) {
-        drawImage(
-                platform.image,
-                platform.x,
-                platform.y,
-                platform.width,
-                platform.height
-        );
+        for (java.awt.geom.Rectangle2D.Double bounds : platform.getDrawBounds()) {
+            if (bounds.width <= 0 || bounds.height <= 0) {
+                continue;
+            }
+
+            drawImage(
+                    platform.image,
+                    bounds.x,
+                    bounds.y,
+                    bounds.width,
+                    bounds.height
+            );
+        }
     }
 
     private void drawPortal(Portal portal) {
@@ -510,19 +580,8 @@ public class Game extends GameEngine{
         if (hoveredLevelButton >= 0 && hoveredLevelButton < levelButtons.length) {
             LevelButton button = levelButtons[hoveredLevelButton];
 
-            double triangleX = button.x + button.width / 2;
-            double triangleY = button.y - 15;
-            double triangleSize = 15;
-
             changeColor(COLOR_TEXT);
-
-            double[] xPoints = {triangleX - triangleSize / 2, triangleX + triangleSize / 2, triangleX};
-            double[] yPoints = {triangleY - triangleSize, triangleY - triangleSize, triangleY};
-
-            int[] xIntPoints = {(int)xPoints[0], (int)xPoints[1], (int)xPoints[2]};
-            int[] yIntPoints = {(int)yPoints[0], (int)yPoints[1], (int)yPoints[2]};
-
-            mGraphics.fillPolygon(xIntPoints, yIntPoints, 3);
+            drawSolidRectangle(button.x + button.width / 2 - 8, button.y - 30, 16, 16);
 
             drawCenteredText(560, 365, 800, button.levelName, "Arial", 30, true, COLOR_TEXT);
             String stateText = button.unlocked ? "Ready to play" : "Complete the previous level to unlock";
@@ -567,7 +626,7 @@ public class Game extends GameEngine{
             }
 
             int reachedPlayer = getReachedGatePlayer();
-            if (reachedPlayer != 0) {
+            if (reachedPlayer != 0 && level.isLevelComplete()) {
                 completeLevel(reachedPlayer);
             }
         }
@@ -588,6 +647,14 @@ public class Game extends GameEngine{
     }
 
     private int getReachedGatePlayer() {
+        if (currentLevel == 3 || currentLevel == 4) {
+            if (player[0].reachedGate && player[1].reachedGate) {
+                return 1;
+            }
+
+            return 0;
+        }
+
         if (player[0].reachedGate) {
             return 1;
         }
@@ -601,17 +668,25 @@ public class Game extends GameEngine{
 
     private void completeLevel(int playerNumber) {
         winningPlayer = playerNumber;
-        playerScores[playerNumber - 1]++;
+
+        if (currentLevel == 3 || currentLevel == 4) {
+            winningPlayer = 0;
+            playerScores[0]++;
+            playerScores[1]++;
+        } else {
+            playerScores[playerNumber - 1]++;
+        }
+
         levelComplete = true;
         levelCompleteTimer = 0;
         playSound(winSound);
 
-        if (currentLevel < 5 && currentLevel + 1 > maxUnlockedLevel) {
+        if (currentLevel < LAST_IMPLEMENTED_LEVEL && currentLevel + 1 > maxUnlockedLevel) {
             maxUnlockedLevel = currentLevel + 1;
             updateLevelButtons();
         }
 
-        if (currentLevel == 5) {
+        if (currentLevel == LAST_IMPLEMENTED_LEVEL) {
             showAllLevelsComplete = true;
             allLevelsCompleteTimer = 0;
         }
@@ -621,6 +696,16 @@ public class Game extends GameEngine{
         levelDeaths[0] = 0;
         levelDeaths[1] = 0;
         winningPlayer = 0;
+    }
+
+    private String completionSummaryText() {
+        String deaths = "P1 deaths: " + levelDeaths[0] + "    P2 deaths: " + levelDeaths[1];
+
+        if (winningPlayer == 0) {
+            return "Co-op clear    " + deaths;
+        }
+
+        return "Winner: P" + winningPlayer + "    " + deaths;
     }
 
     private void playSound(AudioClip sound) {
@@ -743,7 +828,7 @@ public class Game extends GameEngine{
                 if (showAllLevelsComplete) {
                     drawCenteredText(520, 340, 880, "Congratulations!", "Arial", 58, true, new Color(255, 215, 0));
                     drawCenteredText(520, 425, 880, "You have completed all the levels.", "Arial", 30, false, COLOR_TEXT);
-                    drawCenteredText(520, 485, 880, "Winner: P" + winningPlayer + "    P1 deaths: " + levelDeaths[0] + "    P2 deaths: " + levelDeaths[1], "Arial", 24, false, COLOR_TEXT);
+                    drawCenteredText(520, 485, 880, completionSummaryText(), "Arial", 24, false, COLOR_TEXT);
                     drawCenteredText(520, 530, 880, "Score  P1: " + playerScores[0] + "    P2: " + playerScores[1], "Arial", 24, false, COLOR_TEXT);
 
                     int countdown = 3 - (int)allLevelsCompleteTimer;
@@ -761,7 +846,7 @@ public class Game extends GameEngine{
                     }
 
                     drawCenteredText(520, 675, 880, "VICTORY!", "Arial", 58, true, new Color(255, 215, 0));
-                    drawCenteredText(520, 715, 880, "Winner: P" + winningPlayer + "    P1 deaths: " + levelDeaths[0] + "    P2 deaths: " + levelDeaths[1], "Arial", 24, false, COLOR_TEXT);
+                    drawCenteredText(520, 715, 880, completionSummaryText(), "Arial", 24, false, COLOR_TEXT);
                     drawCenteredText(520, 750, 880, "Score  P1: " + playerScores[0] + "    P2: " + playerScores[1], "Arial", 24, false, COLOR_TEXT);
                     drawCenteredText(520, 790, 880, "SPACE: next level    R: restart    ESC: level select", "Arial", 24, false, COLOR_TEXT);
                 }
@@ -779,7 +864,7 @@ public class Game extends GameEngine{
         level = new level1(loadImage("resources/bg1.png"));
         Image malePlayerSheet = loadImage("resources/playerMale.png");
         Image femalePlayerSheet = loadImage("resources/playerFamale.png");
-        Image platformSheet = loadImage("resources/platform.png");
+        platformImage = loadImage("resources/platform.png");
         Image gateSheet = loadImage("resources/gate.png");
         Image sawSheet = loadImage("resources/saw.png");
         Image portalSheet = loadImage("resources/portal.png");
@@ -794,14 +879,6 @@ public class Game extends GameEngine{
         player[0] = new player(maleStay, maleLeft, maleJump);
         player[1] = new player(maleStay, maleLeft, maleJump);
         applyCharacterSelection();
-
-        platformImage = new Image[4];
-
-        platformImage[0] = subImage(platformSheet, 0, 0, 100, 20);
-        platformImage[1] = subImage(platformSheet, 100, 0, 100, 20);
-        platformImage[2] = subImage(platformSheet, 0, 20, 100, 20);
-        platformImage[3] = subImage(platformSheet, 100, 20, 100, 20);
-
 
         portalImage = new Image[4];
         portalImage[0] = subImage(portalSheet, 0, 0, 50, 50);
@@ -856,9 +933,9 @@ public class Game extends GameEngine{
         double buttonHeight = 86;
 
         levelButtons[0] = new LevelButton(1, 260, 720, buttonWidth, buttonHeight, "Level 1: Skybridge Run", true);
-        levelButtons[1] = new LevelButton(2, 620, 560, buttonWidth, buttonHeight, "Level 2: Double Trouble", false);
-        levelButtons[2] = new LevelButton(3, 980, 700, buttonWidth, buttonHeight, "Level 3: Portal Jump", false);
-        levelButtons[3] = new LevelButton(4, 1320, 500, buttonWidth, buttonHeight, "Level 4: Moving Danger", false);
+        levelButtons[1] = new LevelButton(2, 620, 560, buttonWidth, buttonHeight, "Level 2: Trap Corridor", true);
+        levelButtons[2] = new LevelButton(3, 980, 700, buttonWidth, buttonHeight, "Level 3: Windmill Valley", true);
+        levelButtons[3] = new LevelButton(4, 1320, 500, buttonWidth, buttonHeight, "Level 4: Cloud Farm Tower", true);
         levelButtons[4] = new LevelButton(5, 1500, 760, buttonWidth, buttonHeight, "Level 5: Boss Fight", false);
     }
 
@@ -870,14 +947,14 @@ public class Game extends GameEngine{
 
         if (currentLevel == 1) {
             level = new level1(loadImage("resources/bg1.png"));
+        } else if (currentLevel == 2) {
+            level = new level2(loadImage("resources/bg1.png"));
+        } else if (currentLevel == 3) {
+            level = new level3(loadImage("resources/bg1.png"));
+        } else if (currentLevel == 4) {
+            level = new level4(loadImage("resources/bg1.png"));
         }
-//         else if (currentLevel == 2) {
-//            level = new level2(loadImage("resources/bg1.png"));
-//        } else if (currentLevel == 3) {
-//            level = new level3(loadImage("resources/bg1.png"));
-//        } else if (currentLevel == 4) {
-//            level = new level4(loadImage("resources/bg1.png"));
-//        } else if (currentLevel == 5) {
+//        else if (currentLevel == 5) {
 //            level = new level5(loadImage("resources/bg1.png"));
 //        }
 
@@ -919,10 +996,18 @@ public class Game extends GameEngine{
         showAllLevelsComplete = false;
         resetLevelStats();
 
+        if (currentLevel >= LAST_IMPLEMENTED_LEVEL) {
+            levelComplete = false;
+            showAllLevelsComplete = false;
+            currentLevel = -1;
+            showLevelSelect = true;
+            return;
+        }
+
         currentLevel++;
 
-        if (currentLevel > 5) {
-            currentLevel = 5;
+        if (currentLevel > LAST_IMPLEMENTED_LEVEL) {
+            currentLevel = LAST_IMPLEMENTED_LEVEL;
             return;
         }
 
@@ -931,13 +1016,14 @@ public class Game extends GameEngine{
             updateLevelButtons();
         }
 
-//        if (currentLevel == 2) {
-//            level = new level2(loadImage("resources/bg1.png"));
-//        } else if (currentLevel == 3) {
-//            level = new level3(loadImage("resources/bg1.png"));
-//        } else if (currentLevel == 4) {
-//            level = new level4(loadImage("resources/bg1.png"));
-//        } else if (currentLevel == 5) {
+        if (currentLevel == 2) {
+            level = new level2(loadImage("resources/bg1.png"));
+        } else if (currentLevel == 3) {
+            level = new level3(loadImage("resources/bg1.png"));
+        } else if (currentLevel == 4) {
+            level = new level4(loadImage("resources/bg1.png"));
+        }
+//        else if (currentLevel == 5) {
 //            level = new level5(loadImage("resources/bg1.png"));
 //        }
 
@@ -965,7 +1051,7 @@ public class Game extends GameEngine{
     }
     private void updateLevelButtons() {
         for (int i = 0; i < levelButtons.length; i++) {
-            levelButtons[i].unlocked = (i + 1) <= maxUnlockedLevel;
+            levelButtons[i].unlocked = (i + 1) <= LAST_IMPLEMENTED_LEVEL;
         }
     }
     private void loadSelectedLevel(int levelNumber) {
@@ -978,14 +1064,14 @@ public class Game extends GameEngine{
 
         if (levelNumber == 1) {
             level = new level1(loadImage("resources/bg1.png"));
+        } else if (levelNumber == 2) {
+            level = new level2(loadImage("resources/bg1.png"));
+        } else if (levelNumber == 3) {
+            level = new level3(loadImage("resources/bg1.png"));
+        } else if (levelNumber == 4) {
+            level = new level4(loadImage("resources/bg1.png"));
         }
-//         else if (levelNumber == 2) {
-//            level = new level2(loadImage("resources/bg1.png"));
-//        } else if (levelNumber == 3) {
-//            level = new level3(loadImage("resources/bg1.png"));
-//        } else if (levelNumber == 4) {
-//            level = new level4(loadImage("resources/bg1.png"));
-//        } else if (levelNumber == 5) {
+//        else if (levelNumber == 5) {
 //            level = new level5(loadImage("resources/bg1.png"));
 //        }
 

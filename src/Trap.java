@@ -27,4 +27,8 @@ public abstract class Trap {
     public boolean isActive() {
         return active;
     }
+
+    public boolean isVisible() {
+        return active;
+    }
 }

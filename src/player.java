@@ -3,6 +3,7 @@ import java.awt.*;
 public class player {
     private static final int WORLD_WIDTH = 1920;
     private static final int WORLD_HEIGHT = 1080;
+    public static final double DEFAULT_JUMP_POWER = 550;
 
     double x, y;
     int height = 50, width = 50;
@@ -17,7 +18,7 @@ public class player {
     double velocityX, velocityY;
 
     double speed = 250;
-    double jumpPower = 550;
+    double jumpPower = DEFAULT_JUMP_POWER;
     double gravity = 1200;
 
     boolean leftPressed = false;

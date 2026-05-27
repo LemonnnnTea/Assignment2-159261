@@ -40,7 +40,8 @@ public class Gate {
 
         this.images = images;
 
-        frameTime = animationTime / images.length;
+        int animationSteps = Math.max(1, (images.length - 1) * 2);
+        frameTime = animationTime / animationSteps;
     }
 
     public void update(double dt) {
@@ -55,7 +56,6 @@ public class Gate {
 
             timer = 0;
 
-            // 开门
             if (state == GateState.OPENING) {
 
                 currentFrame++;
@@ -68,7 +68,6 @@ public class Gate {
                 }
             }
 
-            // 关门
             else if (state == GateState.CLOSING) {
 
                 currentFrame--;
@@ -79,7 +78,6 @@ public class Gate {
 
                     state = GateState.CLOSED;
 
-                    // 第二个人动画结束后才完成
                     if (player1Reached || player2Reached) {
                         completed = true;
                     }
@@ -89,11 +87,13 @@ public class Gate {
     }
 
     public boolean checkCollision(player p) {
+        double playerCenterX = p.x + p.width / 2.0;
+        double playerCenterY = p.y + p.height / 2.0;
 
-        return CollisionManager.rectCollision(
-                p.x, p.y, p.width, p.height,
-                x, y, width, height
-        );
+        return playerCenterX > x &&
+                playerCenterX < x + width &&
+                playerCenterY > y &&
+                playerCenterY < y + height;
     }
 
     public void playerReach(int playerNumber) {
@@ -120,6 +120,8 @@ public class Gate {
     }
 
     private void startAnimation() {
+
+        completed = false;
 
         state = GateState.OPENING;
 

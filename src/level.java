@@ -1,4 +1,5 @@
 import java.awt.*;
+import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 
 public abstract class level {
@@ -13,6 +14,7 @@ public abstract class level {
     ArrayList<Trap> traps = new ArrayList<>();
     ArrayList<Portal> portals = new ArrayList<>();
     ArrayList<PortalParticle> portalParticles = new ArrayList<>();
+    ArrayList<WindVent> windVents = new ArrayList<>();
     Gate gate;
     private boolean playerTeleportedThisFrame;
 
@@ -28,7 +30,7 @@ public abstract class level {
     public abstract void load(
             player player1,
             player player2,
-            Image[] platformImage,
+            Image platformImage,
             Image spikeImage,
             Image[] sawFrames,
             Image pitImage,
@@ -42,6 +44,8 @@ public abstract class level {
 
         updateDeadPlayers(dt);
 
+        updateWindVents(dt);
+
         if (isPlayerActive(player1)) {
             player1.updatePlayer(dt);
         }
@@ -50,7 +54,7 @@ public abstract class level {
             player2.updatePlayer(dt);
         }
 
-        updateMovingPlatforms(dt);
+        updatePlatforms(dt);
 
         for (Portal portal : portals) {
             portal.update(dt);
@@ -136,18 +140,23 @@ public abstract class level {
         p.onGround = false;
 
         for (Platform platform : platforms) {
-
-            if (platform.checkCollision(p)) {
+            for (Rectangle2D.Double bounds : platform.getCollisionBounds()) {
+                if (!CollisionManager.rectCollision(
+                        p.x, p.y, p.width, p.height,
+                        bounds.x, bounds.y, bounds.width, bounds.height
+                )) {
+                    continue;
+                }
 
                 double playerBottom = p.y + p.height;
                 double playerTop = p.y;
                 double playerLeft = p.x;
                 double playerRight = p.x + p.width;
 
-                double platformBottom = platform.y + platform.height;
-                double platformTop = platform.y;
-                double platformLeft = platform.x;
-                double platformRight = platform.x + platform.width;
+                double platformBottom = bounds.y + bounds.height;
+                double platformTop = bounds.y;
+                double platformLeft = bounds.x;
+                double platformRight = bounds.x + bounds.width;
 
                 double overlapBottom = playerBottom - platformTop;
                 double overlapTop = platformBottom - playerTop;
@@ -177,11 +186,15 @@ public abstract class level {
         }
     }
 
-    private void updateMovingPlatforms(double dt) {
+    private void updatePlatforms(double dt) {
         for (Platform platform : platforms) {
-            if (platform instanceof MovingPit) {
-                ((MovingPit) platform).update(dt, player1, player2);
-            }
+            platform.update(dt, player1, player2);
+        }
+    }
+
+    private void updateWindVents(double dt) {
+        for (WindVent windVent : windVents) {
+            windVent.update(dt, player1, player2);
         }
     }
 
@@ -323,6 +336,10 @@ public abstract class level {
 
     public ArrayList<PortalParticle> getPortalParticles() {
         return portalParticles;
+    }
+
+    public ArrayList<WindVent> getWindVents() {
+        return windVents;
     }
 
     private void updatePortalParticles(double dt) {

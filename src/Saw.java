@@ -8,9 +8,7 @@ public class Saw extends Trap {
 
     boolean movingToEnd = true;
 
-    // 动画部分
     Image[] frames;
-
     int currentFrame = 0;
 
     double animationTimer = 0;
@@ -21,24 +19,28 @@ public class Saw extends Trap {
                double endX, double endY,
                double speed,
                Image[] frames) {
+        this(x, y, width, height, x, y, endX, endY, speed, frames);
+    }
 
-        // 默认先给第一帧
+    public Saw(double x, double y,
+               double width, double height,
+               double startX, double startY,
+               double endX, double endY,
+               double speed,
+               Image[] frames) {
+
         super(x, y, width, height, frames[0]);
 
         this.frames = frames;
-
-        this.startX = x;
-        this.startY = y;
-
+        this.startX = startX;
+        this.startY = startY;
         this.endX = endX;
         this.endY = endY;
-
         this.speed = speed;
     }
 
     @Override
     public void update(double dt, player p1, player p2) {
-
         updateAnimation(dt);
 
         double targetX = movingToEnd ? endX : startX;
@@ -46,7 +48,6 @@ public class Saw extends Trap {
 
         double dx = targetX - x;
         double dy = targetY - y;
-
         double distance = Math.sqrt(dx * dx + dy * dy);
 
         if (distance < 2) {
@@ -59,27 +60,22 @@ public class Saw extends Trap {
     }
 
     private void updateAnimation(double dt) {
-
         animationTimer += dt;
 
         if (animationTimer >= animationSpeed) {
-
             animationTimer = 0;
-
             currentFrame++;
 
             if (currentFrame >= frames.length) {
                 currentFrame = 0;
             }
 
-            // 更新 Trap.image
             image = frames[currentFrame];
         }
     }
 
     @Override
     public boolean checkCollision(player p) {
-
         return CollisionManager.rectCollision(
                 p.x, p.y, p.width, p.height,
                 x, y, width, height
