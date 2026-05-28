@@ -70,6 +70,8 @@ public class Portal {
     public void teleport(player p) {
         p.x = targetX;
         p.y = targetY;
+        p.previousX = targetX;
+        p.previousY = targetY;
         p.velocityX = 0;
         p.velocityY = 0;
     }

@@ -1,106 +1,152 @@
 import java.awt.*;
 
 public class FakeGateTrap extends Trap {
-    private static final double RESET_DELAY = 1.0;
-    private static final double TRIGGER_DISTANCE = 5.0;
+    private static final double ANIMATION_TIME = 1.0;
 
-    private final double startX;
-    private final double startY;
-    private final double retreatDistance;
-    private final Image doorImage;
-    private final Image spikeImage;
+    private final Image[] doorFrames;
+    private final double frameTime;
 
-    private boolean triggered = false;
+    private GateState state = GateState.CLOSED;
+    private int currentFrame = 0;
     private double timer = 0;
+    private player trappedPlayer;
+    private int trappedPlayerNumber = 0;
+    private boolean player1EatenThisFrame = false;
+    private boolean player2EatenThisFrame = false;
+
+    enum GateState {
+        CLOSED,
+        OPENING,
+        CLOSING
+    }
 
     public FakeGateTrap(double x,
                         double y,
                         double width,
                         double height,
-                        double retreatDistance,
-                        Image doorImage,
-                        Image spikeImage) {
-        super(x, y, width, height, doorImage);
-        this.startX = x;
-        this.startY = y;
-        this.retreatDistance = retreatDistance;
-        this.doorImage = doorImage;
-        this.spikeImage = spikeImage;
+                        Image[] doorFrames) {
+        super(x, y, width, height, doorFrames[0]);
+        this.doorFrames = doorFrames;
+
+        int animationSteps = Math.max(1, (doorFrames.length - 1) * 2);
+        frameTime = ANIMATION_TIME / animationSteps;
     }
 
     @Override
     public void update(double dt, player p1, player p2) {
-        if (!triggered && (isNearDoor(p1) || isNearDoor(p2))) {
-            triggered = true;
-            timer = 0;
-        }
+        player1EatenThisFrame = false;
+        player2EatenThisFrame = false;
 
-        if (!triggered) {
-            x = startX;
-            y = startY;
+        if (state == GateState.CLOSED) {
+            image = doorFrames[0];
             return;
         }
 
         timer += dt;
-        double ratio = Math.min(1.0, timer / RESET_DELAY);
-        x = startX + retreatDistance * ratio;
-        y = startY;
 
-        if (timer >= RESET_DELAY) {
-            triggered = false;
-            timer = 0;
-            x = startX;
-            y = startY;
+        if (timer < frameTime) {
+            return;
         }
+
+        timer = 0;
+
+        if (state == GateState.OPENING) {
+            currentFrame++;
+
+            if (currentFrame >= doorFrames.length - 1) {
+                currentFrame = doorFrames.length - 1;
+                state = GateState.CLOSING;
+            }
+        } else if (state == GateState.CLOSING) {
+            currentFrame--;
+
+            if (currentFrame <= 0) {
+                currentFrame = 0;
+                finishEatingPlayer();
+            }
+        }
+
+        image = doorFrames[currentFrame];
     }
 
     @Override
     public boolean checkCollision(player p) {
-        if (!triggered || p == null || p.dead || p.reachedGate) {
+        if (state != GateState.CLOSED || p == null || p.dead || p.reachedGate || p.trappedInFakeGate) {
             return false;
         }
 
         double playerCenterX = p.x + p.width / 2.0;
-        double playerBottom = p.y + p.height;
+        double playerCenterY = p.y + p.height / 2.0;
 
-        return playerCenterX >= startX &&
-                playerCenterX <= startX + width &&
-                playerBottom >= startY &&
-                playerBottom <= startY + height + 5 &&
-                p.velocityY >= 0;
+        return playerCenterX > x &&
+                playerCenterX < x + width &&
+                playerCenterY > y &&
+                playerCenterY < y + height;
     }
 
-    private boolean isNearDoor(player p) {
-        if (p == null || p.dead || p.reachedGate) {
-            return false;
+    @Override
+    public void onCollide(player p) {
+        if (state != GateState.CLOSED || p == null || p.dead || p.reachedGate || p.trappedInFakeGate) {
+            return;
         }
 
-        return CollisionManager.rectCollision(
-                p.x, p.y, p.width, p.height,
-                startX - TRIGGER_DISTANCE,
-                startY - TRIGGER_DISTANCE,
-                width + TRIGGER_DISTANCE * 2,
-                height + TRIGGER_DISTANCE * 2
-        );
+        trappedPlayer = p;
+        trappedPlayerNumber = 0;
+        p.trappedInFakeGate = true;
+        p.velocityX = 0;
+        p.velocityY = 0;
+        p.leftPressed = false;
+        p.rightPressed = false;
+        p.jumpPressed = false;
+
+        startAnimation();
     }
 
-    public boolean isSpikeVisible() {
-        return triggered;
+    public void setTrappedPlayerNumber(int playerNumber) {
+        if (trappedPlayer != null && trappedPlayerNumber == 0) {
+            trappedPlayerNumber = playerNumber;
+        }
+    }
+
+    private void startAnimation() {
+        state = GateState.OPENING;
+        currentFrame = 0;
+        timer = 0;
+        image = doorFrames[0];
+    }
+
+    private void finishEatingPlayer() {
+        state = GateState.CLOSED;
+
+        if (trappedPlayer != null) {
+            trappedPlayer.trappedInFakeGate = false;
+            trappedPlayer.die();
+
+            if (trappedPlayerNumber == 1) {
+                player1EatenThisFrame = true;
+            } else if (trappedPlayerNumber == 2) {
+                player2EatenThisFrame = true;
+            }
+        }
+
+        trappedPlayer = null;
+        trappedPlayerNumber = 0;
+        timer = 0;
+    }
+
+    public boolean didEatPlayer(int playerNumber) {
+        if (playerNumber == 1) {
+            return player1EatenThisFrame;
+        }
+
+        if (playerNumber == 2) {
+            return player2EatenThisFrame;
+        }
+
+        return false;
     }
 
     public Image getDoorImage() {
-        return doorImage;
-    }
-
-    public Image getSpikeImage() {
-        return spikeImage;
-    }
-
-    public double getSpikeX() {
-        return startX;
-    }
-
-    public double getSpikeY() {
-        return startY;
+        return doorFrames[currentFrame];
     }
 }

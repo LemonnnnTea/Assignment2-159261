@@ -1,12 +1,15 @@
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
+import javax.sound.sampled.FloatControl;
 
 public class Game extends GameEngine{
 
     private static final int WINDOW_WIDTH = 1920;
     private static final int WINDOW_HEIGHT = 1080;
-    private static final int LAST_IMPLEMENTED_LEVEL = 4;
+    private static final int LAST_IMPLEMENTED_LEVEL = 5;
     private static final double MAX_PHYSICS_DT = 1.0 / 30.0;
 
     private static final double MENU_BUTTON_X = 1320;
@@ -79,6 +82,14 @@ public class Game extends GameEngine{
     AudioClip deadSound;
     AudioClip winSound;
     AudioClip transSound;
+    AudioClip eatSound;
+    AudioClip enemyDeadSound;
+    AudioClip missileLockSound;
+    AudioClip menuBgm;
+    AudioClip[] levelBgms = new AudioClip[6];
+    AudioClip currentBgm;
+    Clip missileLockClip;
+    boolean missileLockLoopPlaying = false;
 
     boolean pauseReturnHover = false;
     boolean pauseHelpHover = false;
@@ -124,6 +135,7 @@ public class Game extends GameEngine{
     Image[] sawFrames;
     Image pitImage;
     Image knifeImage;
+    Image missileImage;
     Image[] portalImage;
     Image[] gateImage;
 
@@ -133,6 +145,8 @@ public class Game extends GameEngine{
     Image[] femaleStay;
     Image[] femaleLeft;
     Image[] femaleJump;
+    Image[] enemyIdleFrames;
+    Image[] enemyLeftFrames;
 
     int characterChoice = 0;
     int hoveredCharacterChoice = -1;
@@ -142,6 +156,10 @@ public class Game extends GameEngine{
     boolean volumePlusHover = false;
     boolean volumeBarHover = false;
     boolean settingsCloseHover = false;
+    boolean[] fakeGateDeathSequenceActive = new boolean[2];
+    boolean[] fakeGateDeathHidePlayer = new boolean[2];
+    double[] fakeGateDeathSequenceTimer = new double[2];
+    int[] fakeGateDeathSequenceDeadPlays = new int[2];
 
     public static void main(String[] args) {
         createGame(new Game(), 60);
@@ -169,6 +187,12 @@ public class Game extends GameEngine{
         for (Trap trap : Level.getTraps()) {
             if (trap.isVisible()) {
                 drawTrap(trap);
+            }
+        }
+
+        for (Enemy enemy : Level.getEnemies()) {
+            if (enemy.isActive()) {
+                drawEnemy(enemy);
             }
         }
     }
@@ -251,6 +275,17 @@ public class Game extends GameEngine{
 
     private Image[] slicePlayerRow(Image sheet, int row) {
         int spriteSize = 50;
+        Image[] frames = new Image[5];
+
+        for (int i = 0; i < frames.length; i++) {
+            frames[i] = subImage(sheet, i * spriteSize, row * spriteSize, spriteSize, spriteSize);
+        }
+
+        return frames;
+    }
+
+    private Image[] sliceEnemyRow(Image sheet, int row) {
+        int spriteSize = 100;
         Image[] frames = new Image[5];
 
         for (int i = 0; i < frames.length; i++) {
@@ -439,15 +474,22 @@ public class Game extends GameEngine{
 
     private void drawFakeGateTrap(FakeGateTrap fakeGate) {
         drawImage(fakeGate.getDoorImage(), fakeGate.x, fakeGate.y, fakeGate.width, fakeGate.height);
+    }
 
-        if (fakeGate.isSpikeVisible()) {
-            drawImage(
-                    fakeGate.getSpikeImage(),
-                    fakeGate.getSpikeX(),
-                    fakeGate.getSpikeY(),
-                    fakeGate.width,
-                    fakeGate.height
-            );
+    private void drawEnemy(Enemy enemy) {
+        if (enemy.isFallingAfterDeath()) {
+            saveCurrentTransform();
+            translate(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+            rotate(180);
+            drawImage(enemy.getCurrentImage(), -enemy.width / 2, -enemy.height / 2, enemy.width, enemy.height);
+            restoreLastTransform();
+            return;
+        }
+
+        if (enemy.isFacingLeft()) {
+            drawImage(enemy.getCurrentImage(), enemy.x, enemy.y, enemy.width, enemy.height);
+        } else {
+            drawImage(enemy.getCurrentImage(), enemy.x + enemy.width, enemy.y, -enemy.width, enemy.height);
         }
     }
 
@@ -521,6 +563,15 @@ public class Game extends GameEngine{
     }
 
     private void drawSinglePlayer(player p) {
+        if (p.trappedInFakeGate) {
+            return;
+        }
+
+        if ((p == player[0] && fakeGateDeathHidePlayer[0]) ||
+                (p == player[1] && fakeGateDeathHidePlayer[1])) {
+            return;
+        }
+
         if (p.dead && deadPigImage != null) {
             drawImage(deadPigImage, p.x, p.y, p.width, p.height);
             return;
@@ -623,6 +674,11 @@ public class Game extends GameEngine{
     @Override
     public void update(double dt) {
         dt = Math.min(dt, MAX_PHYSICS_DT);
+        updateBackgroundMusic();
+
+        if (!(currentLevel == 5 && level instanceof level5 && !gameOver && !levelComplete && !gamePaused)) {
+            updateMissileLockSound(false, dt);
+        }
 
         if (currentLevel >= 1 && currentLevel <= 5 && !gameOver && !levelComplete && !gamePaused) {
             boolean player1WasDead = player[0].dead;
@@ -634,14 +690,51 @@ public class Game extends GameEngine{
                 playSound(transSound);
             }
 
+            if (level.didEnemyDie()) {
+                playSound(enemyDeadSound);
+            }
+
+            playerScores[0] += level.getEnemyKillsForPlayer(1);
+            playerScores[1] += level.getEnemyKillsForPlayer(2);
+
+            if (level instanceof level5) {
+                level5 bossLevel = (level5)level;
+
+                if (bossLevel.getLifeLossesThisFrame() > 0) {
+                    levelDeaths[1] += bossLevel.getLifeLossesThisFrame();
+                    playSound(deadSound);
+                }
+
+                if (bossLevel.isBossFightGameOver()) {
+                    gameOver = true;
+                }
+
+                updateMissileLockSound(!gameOver && !bossLevel.isLevelComplete() && bossLevel.hasLockedBossMissile(), dt);
+
+                if (bossLevel.isLevelComplete()) {
+                    updateMissileLockSound(false, dt);
+                    completeLevel(1);
+                }
+
+                return;
+            }
+
             if (!player1WasDead && player[0].dead) {
                 levelDeaths[0]++;
-                playSound(deadSound);
+                if (level.wasPlayerEatenByFakeGate(1)) {
+                    startFakeGateDeathSequence(0);
+                } else {
+                    playSound(level.wasPlayerEaten(1) ? eatSound : deadSound);
+                }
             }
 
             if (!player2WasDead && player[1].dead) {
                 levelDeaths[1]++;
-                playSound(deadSound);
+                if (level.wasPlayerEatenByFakeGate(2)) {
+                    startFakeGateDeathSequence(1);
+                } else {
+                    playSound(level.wasPlayerEaten(2) ? eatSound : deadSound);
+                }
             }
 
             int reachedPlayer = getReachedGatePlayer();
@@ -653,6 +746,8 @@ public class Game extends GameEngine{
         if (levelComplete && currentLevel != 5) {
             levelCompleteTimer += dt;
         }
+
+        updateFakeGateDeathSequences(dt);
 
         if (showAllLevelsComplete) {
             allLevelsCompleteTimer += dt;
@@ -666,14 +761,6 @@ public class Game extends GameEngine{
     }
 
     private int getReachedGatePlayer() {
-        if (currentLevel == 3) {
-            if (player[0].reachedGate && player[1].reachedGate) {
-                return 1;
-            }
-
-            return 0;
-        }
-
         if (player[0].reachedGate) {
             return 1;
         }
@@ -688,7 +775,7 @@ public class Game extends GameEngine{
     private void completeLevel(int playerNumber) {
         winningPlayer = playerNumber;
 
-        if (currentLevel == 3) {
+        if (currentLevel == 5) {
             winningPlayer = 0;
             playerScores[0]++;
             playerScores[1]++;
@@ -717,6 +804,62 @@ public class Game extends GameEngine{
         winningPlayer = 0;
     }
 
+    private void startFakeGateDeathSequence(int playerIndex) {
+        fakeGateDeathSequenceActive[playerIndex] = true;
+        fakeGateDeathHidePlayer[playerIndex] = true;
+        fakeGateDeathSequenceTimer[playerIndex] = 0;
+        fakeGateDeathSequenceDeadPlays[playerIndex] = 0;
+
+        playSound(eatSound);
+
+        double sequenceDuration = audioDuration(eatSound) + audioDuration(deadSound) * 3.0;
+        player[playerIndex].deadTimer = -Math.max(0, sequenceDuration - 1.0);
+    }
+
+    private void updateFakeGateDeathSequences(double dt) {
+        for (int i = 0; i < fakeGateDeathSequenceActive.length; i++) {
+            if (!fakeGateDeathSequenceActive[i]) {
+                continue;
+            }
+
+            fakeGateDeathSequenceTimer[i] += dt;
+
+            double eatDuration = audioDuration(eatSound);
+            double deadDuration = audioDuration(deadSound);
+
+            while (fakeGateDeathSequenceDeadPlays[i] < 3 &&
+                    fakeGateDeathSequenceTimer[i] >= eatDuration + fakeGateDeathSequenceDeadPlays[i] * deadDuration) {
+                playSound(deadSound);
+                fakeGateDeathSequenceDeadPlays[i]++;
+            }
+
+            if (fakeGateDeathSequenceTimer[i] >= eatDuration + deadDuration * 3.0) {
+                fakeGateDeathSequenceActive[i] = false;
+                fakeGateDeathHidePlayer[i] = false;
+            }
+        }
+    }
+
+    private void resetFakeGateDeathSequences() {
+        for (int i = 0; i < fakeGateDeathSequenceActive.length; i++) {
+            fakeGateDeathSequenceActive[i] = false;
+            fakeGateDeathHidePlayer[i] = false;
+            fakeGateDeathSequenceTimer[i] = 0;
+            fakeGateDeathSequenceDeadPlays[i] = 0;
+        }
+    }
+
+    private double audioDuration(AudioClip clip) {
+        if (clip == null || clip.getAudioFormat() == null ||
+                clip.getAudioFormat().getFrameSize() <= 0 ||
+                clip.getAudioFormat().getFrameRate() <= 0) {
+            return 1.0;
+        }
+
+        return clip.getBufferSize() /
+                (clip.getAudioFormat().getFrameSize() * clip.getAudioFormat().getFrameRate());
+    }
+
     private String completionSummaryText() {
         String deaths = "P1 deaths: " + levelDeaths[0] + "    P2 deaths: " + levelDeaths[1];
 
@@ -729,6 +872,367 @@ public class Game extends GameEngine{
 
     private void playSound(AudioClip sound) {
         playAudio(sound, masterVolumeGain);
+    }
+
+    private AudioClip getBgmForCurrentScreen() {
+        if (currentLevel >= 1 && currentLevel <= 5) {
+            return levelBgms[currentLevel];
+        }
+
+        return menuBgm;
+    }
+
+    private void updateBackgroundMusic() {
+        AudioClip nextBgm = getBgmForCurrentScreen();
+
+        if (nextBgm == currentBgm) {
+            ensureBackgroundMusicPlaying();
+            updateLoopVolume(currentBgm);
+            return;
+        }
+
+        if (currentBgm != null) {
+            stopAudioLoop(currentBgm);
+        }
+
+        currentBgm = nextBgm;
+        startBackgroundMusicLoop(currentBgm);
+    }
+
+    private void ensureBackgroundMusicPlaying() {
+        if (currentBgm == null) {
+            return;
+        }
+
+        Clip clip = currentBgm.getLoopClip();
+        if (clip == null || !clip.isRunning()) {
+            startBackgroundMusicLoop(currentBgm);
+        }
+    }
+
+    private void startBackgroundMusicLoop(AudioClip music) {
+        if (music == null) {
+            return;
+        }
+
+        try {
+            Clip clip = music.getLoopClip();
+
+            if (clip == null) {
+                clip = AudioSystem.getClip();
+                clip.open(
+                        music.getAudioFormat(),
+                        music.getData(),
+                        0,
+                        (int)music.getBufferSize()
+                );
+                music.setLoopClip(clip);
+            }
+
+            updateLoopVolume(music);
+            clip.setFramePosition(0);
+            clip.loop(Clip.LOOP_CONTINUOUSLY);
+            clip.start();
+        } catch (Exception exception) {
+            System.out.println("Error playing background music\n");
+        }
+    }
+
+    private void updateLoopVolume(AudioClip music) {
+        if (music == null || music.getLoopClip() == null) {
+            return;
+        }
+
+        updateClipVolume(music.getLoopClip());
+    }
+
+    private void updateClipVolume(Clip clip) {
+        if (clip != null && clip.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
+            FloatControl control = (FloatControl)clip.getControl(FloatControl.Type.MASTER_GAIN);
+            float volume = Math.max(control.getMinimum(), Math.min(control.getMaximum(), masterVolumeGain));
+            control.setValue(volume);
+        }
+    }
+
+    private void updateMissileLockSound(boolean shouldPlay, double dt) {
+        if (!shouldPlay) {
+            stopMissileLockClip();
+            return;
+        }
+
+        if (!missileLockLoopPlaying || missileLockClip == null || !missileLockClip.isRunning()) {
+            startMissileLockClip();
+        }
+    }
+
+    private void startMissileLockClip() {
+        if (missileLockSound == null) {
+            return;
+        }
+
+        try {
+            if (missileLockClip == null) {
+                missileLockClip = AudioSystem.getClip();
+                missileLockClip.open(
+                        missileLockSound.getAudioFormat(),
+                        missileLockSound.getData(),
+                        0,
+                        (int)missileLockSound.getBufferSize()
+                );
+            }
+
+            updateClipVolume(missileLockClip);
+
+            missileLockClip.setFramePosition(0);
+            missileLockClip.loop(Clip.LOOP_CONTINUOUSLY);
+            missileLockClip.start();
+            missileLockLoopPlaying = true;
+        } catch (Exception exception) {
+            System.out.println("Error playing missile lock Audio Clip\n");
+        }
+    }
+
+    private void stopMissileLockClip() {
+        if (missileLockClip != null) {
+            missileLockClip.stop();
+            missileLockClip.setFramePosition(0);
+        }
+
+        missileLockLoopPlaying = false;
+    }
+
+    private void drawLevel5(level5 bossLevel) {
+        changeColor(new Color(12, 20, 34));
+        drawSolidRectangle(0, 0, 960, 1080);
+        changeColor(new Color(16, 18, 28));
+        drawSolidRectangle(960, 0, 960, 1080);
+        changeColor(new Color(255, 255, 255, 80));
+        drawSolidRectangle(958, 0, 4, 1080);
+
+        drawLevel5LeftPanel(bossLevel);
+        drawLevel5RightPanel(bossLevel);
+    }
+
+    private void drawLevel5LeftPanel(level5 bossLevel) {
+        changeColor(new Color(20, 34, 52));
+        drawSolidRectangle(level5.GRID_X, level5.GRID_Y, level5.GRID_COLS * level5.CELL, level5.GRID_ROWS * level5.CELL);
+
+        changeColor(new Color(56, 78, 104, 160));
+        for (int col = 0; col <= level5.GRID_COLS; col++) {
+            double x = level5.GRID_X + col * level5.CELL;
+            drawLine(x, level5.GRID_Y, x, level5.GRID_Y + level5.GRID_ROWS * level5.CELL);
+        }
+
+        for (int row = 0; row <= level5.GRID_ROWS; row++) {
+            double y = level5.GRID_Y + row * level5.CELL;
+            drawLine(level5.GRID_X, y, level5.GRID_X + level5.GRID_COLS * level5.CELL, y);
+        }
+
+        for (level5.SupplyItem item : bossLevel.supplyItems) {
+            drawSupplyItem(item);
+        }
+
+        for (int i = bossLevel.greedyPig.size() - 1; i >= 0; i--) {
+            level5.GridPoint part = bossLevel.greedyPig.get(i);
+            double x = level5.GRID_X + part.col * level5.CELL;
+            double y = level5.GRID_Y + part.row * level5.CELL;
+
+            if (i == 0 && player[0] != null) {
+                drawImage(player[0].getCurrentImage(), x, y, 50, 50);
+            } else {
+                changeColor(new Color(74, 190, 95));
+                drawSolidRectangle(x + 6, y + 6, 38, 38);
+                changeColor(new Color(180, 255, 190));
+                drawRectangle(x + 6, y + 6, 38, 38, 2);
+            }
+        }
+
+        changeColor(COLOR_TEXT);
+        drawBoldText(50, 32, "Supply Pig", "Arial", 24);
+        changeColor(COLOR_MUTED_TEXT);
+        drawText(210, 32, "Missiles " + bossLevel.missileAmmo + "/" + level5.MAX_MISSILES, "Arial", 20);
+        drawText(380, 32, "Shield " + (bossLevel.shield ? "ON" : "OFF"), "Arial", 20);
+        drawText(520, 32, "Rage " + String.format("%.1f", bossLevel.rageTimer), "Arial", 20);
+
+        if (bossLevel.greedyStunTimer > 0) {
+            drawCenteredText(260, 560, 440, "STUN " + String.format("%.1f", bossLevel.greedyStunTimer), "Arial", 42, true, COLOR_ACCENT_2);
+        }
+    }
+
+    private void drawSupplyItem(level5.SupplyItem item) {
+        Color color;
+        String label;
+
+        if (item.type == level5.ItemType.MISSILE || item.type == level5.ItemType.CURSED_MISSILE) {
+            color = new Color(255, 140, 45);
+            label = "M";
+        } else if (item.type == level5.ItemType.HEAL) {
+            color = new Color(80, 220, 120);
+            label = "+";
+        } else if (item.type == level5.ItemType.SHIELD) {
+            color = new Color(80, 190, 255);
+            label = "S";
+        } else {
+            color = new Color(245, 70, 65);
+            label = "R";
+        }
+
+        changeColor(color);
+        drawSolidCircle(item.x() + 25, item.y() + 25, 20);
+        changeColor(new Color(255, 255, 255, 220));
+        drawCircle(item.x() + 25, item.y() + 25, 20, 3);
+        drawCenteredText(item.x(), item.y() + 34, 50, label, "Arial", 24, true, Color.WHITE);
+    }
+
+    private void drawLevel5RightPanel(level5 bossLevel) {
+        if (bossLevel.isRaging()) {
+            changeColor(new Color(180, 35, 30, 50));
+            drawSolidRectangle(960, 0, 960, 1080);
+        }
+
+        drawBossHealthBar(bossLevel);
+        drawBattleHud(bossLevel);
+        drawBattlePig(bossLevel);
+        drawBoss(bossLevel);
+        drawLevel5WeaponsAndHazards(bossLevel);
+    }
+
+    private void drawBossHealthBar(level5 bossLevel) {
+        double ratio = bossLevel.bossHp / level5.MAX_BOSS_HP;
+        if (ratio < 0) ratio = 0;
+
+        changeColor(new Color(36, 42, 56));
+        drawSolidRectangle(1080, 40, 700, 30);
+        changeColor(ratio > 0.7 ? new Color(80, 210, 110) : ratio > 0.35 ? new Color(255, 190, 70) : new Color(235, 70, 70));
+        drawSolidRectangle(1080, 40, 700 * ratio, 30);
+        changeColor(Color.WHITE);
+        drawRectangle(1080, 40, 700, 30, 2);
+        drawText(1080, 32, "BOSS HP  Phase " + bossLevel.phaseNumber(), "Arial", 22);
+
+        if (bossLevel.isRaging()) {
+            changeColor(new Color(255, 90, 70));
+            drawBoldText(1620, 32, "RAGE " + String.format("%.1f", bossLevel.rageTimer) + "s", "Arial", 22);
+        }
+    }
+
+    private void drawBattleHud(level5 bossLevel) {
+        changeColor(COLOR_TEXT);
+        drawText(980, 58, "Lives: " + bossLevel.battleLives, "Arial", 22);
+        drawText(980, 105, "Missiles: " + bossLevel.missileAmmo + "/" + level5.MAX_MISSILES, "Arial", 22);
+        drawText(980, 145, "Shield: " + (bossLevel.shield ? "ON" : "OFF"), "Arial", 22);
+        drawText(980, 185, "Rage: " + String.format("%.1f", bossLevel.rageTimer), "Arial", 22);
+
+        if (!bossLevel.bossMissiles.isEmpty()) {
+            drawCenteredText(1280, 105, 360, "WARNING!", "Arial", 30, true, new Color(255, 80, 60));
+        }
+    }
+
+    private void drawBattlePig(level5 bossLevel) {
+        if (bossLevel.isBattlePigInvincible() && ((int)(System.currentTimeMillis() / 120) % 2 == 0)) {
+            return;
+        }
+
+        if (bossLevel.shield) {
+            changeColor(new Color(80, 190, 255, 80));
+            drawSolidCircle(level5.BATTLE_X + 25, bossLevel.battleY + 25, 42);
+            changeColor(new Color(150, 225, 255, 220));
+            drawCircle(level5.BATTLE_X + 25, bossLevel.battleY + 25, 42, 3);
+        }
+
+        drawSinglePlayer(player[1]);
+    }
+
+    private void drawBoss(level5 bossLevel) {
+        changeColor(new Color(130, 35, 48));
+        drawSolidRectangle(level5.BOSS_X, level5.BOSS_Y, level5.BOSS_W, level5.BOSS_H);
+        changeColor(new Color(210, 70, 80));
+        drawSolidRectangle(level5.BOSS_X + 18, level5.BOSS_Y + 30, level5.BOSS_W - 36, 56);
+        changeColor(Color.WHITE);
+        drawSolidCircle(level5.BOSS_X + 48, level5.BOSS_Y + 80, 12);
+        drawSolidCircle(level5.BOSS_X + 112, level5.BOSS_Y + 80, 12);
+        changeColor(new Color(20, 20, 24));
+        drawSolidCircle(level5.BOSS_X + 52, level5.BOSS_Y + 82, 6);
+        drawSolidCircle(level5.BOSS_X + 116, level5.BOSS_Y + 82, 6);
+        changeColor(new Color(255, 190, 80));
+        drawRectangle(level5.BOSS_X, level5.BOSS_Y, level5.BOSS_W, level5.BOSS_H, 4);
+    }
+
+    private void drawLevel5WeaponsAndHazards(level5 bossLevel) {
+        for (level5.Shot knife : bossLevel.knives) {
+            if (bossLevel.getKnifeImage() != null) {
+                drawImage(bossLevel.getKnifeImage(), knife.x, knife.y, knife.width, knife.height);
+            } else {
+                changeColor(new Color(220, 225, 235));
+                drawSolidRectangle(knife.x, knife.y + 20, knife.width, 10);
+            }
+        }
+
+        for (level5.Shot missile : bossLevel.playerMissiles) {
+            drawPlayerMissile(missile);
+        }
+
+        for (level5.Shot missile : bossLevel.cursedMissiles) {
+            drawPlayerMissile(missile);
+        }
+
+        Image enemyImage = bossLevel.getEnemyImage();
+        for (level5.FlyingEnemy enemy : bossLevel.flyingEnemies) {
+            if (enemyImage != null) {
+                drawImage(enemyImage, enemy.x, enemy.y, enemy.width, enemy.height);
+            } else {
+                changeColor(new Color(150, 80, 220));
+                drawSolidCircle(enemy.x + 25, enemy.y + 25, 24);
+            }
+        }
+
+        for (level5.BossMissile missile : bossLevel.bossMissiles) {
+            drawBossMissile(missile);
+        }
+    }
+
+    private void drawPlayerMissile(level5.Shot missile) {
+        drawMissileWithFlame(missile.x, missile.y, missile.width, missile.height, missile.vx, missile.vy);
+    }
+
+    private void drawBossMissile(level5.BossMissile missile) {
+        drawMissileWithFlame(missile.x, missile.y, missile.width, missile.height, missile.vx, missile.vy);
+    }
+
+    private void drawMissileWithFlame(double x, double y, double w, double h, double vx, double vy) {
+        double centerX = x + w / 2.0;
+        double centerY = y + h / 2.0;
+        double speed = Math.max(1, Math.sqrt(vx * vx + vy * vy));
+        double dirX = vx / speed;
+        double dirY = vy / speed;
+        double tailX = centerX - dirX * h * 0.48;
+        double tailY = centerY - dirY * h * 0.48;
+
+        drawMissileFlame(tailX, tailY, dirX, dirY);
+
+        if (missileImage != null) {
+            saveCurrentTransform();
+            translate(centerX, centerY);
+            rotate(Math.toDegrees(Math.atan2(-dirX, dirY)));
+            drawImage(missileImage, -w / 2.0, -h / 2.0, w, h);
+            restoreLastTransform();
+            return;
+        }
+
+        changeColor(new Color(230, 60, 50));
+        drawSolidRectangle(x + 8, y + 14, w - 16, h - 28);
+        drawSolidCircle(centerX + dirX * 14, centerY + dirY * 14, 10);
+    }
+
+    private void drawMissileFlame(double tailX, double tailY, double dirX, double dirY) {
+        double flameX = tailX - dirX * 12;
+        double flameY = tailY - dirY * 12;
+
+        changeColor(new Color(255, 80, 25, 190));
+        drawSolidCircle(flameX, flameY, 13);
+        changeColor(new Color(255, 185, 45, 220));
+        drawSolidCircle(flameX - dirX * 5, flameY - dirY * 5, 9);
+        changeColor(new Color(255, 240, 120, 235));
+        drawSolidCircle(flameX - dirX * 10, flameY - dirY * 10, 5);
     }
 
     @Override
@@ -779,34 +1283,33 @@ public class Game extends GameEngine{
             drawLevelSelectScreen();
         }
         else if (currentLevel >= 1 && currentLevel <= 5){
-            drawLevel(level);
-            for(Platform p : level.platforms){
+            if (currentLevel == 5 && level instanceof level5) {
+                drawLevel5((level5)level);
+            } else {
+                drawLevel(level);
 
-            }
-
-            for(Trap t : level.traps){
-
-            }
-
-            if (level.getGate() != null) {
-                drawGate(level.getGate());
-            }
-
-            if (!gameOver && !levelComplete && !gamePaused) {
-                boolean showPlayer1 = !level.getGate().hasPlayerReached(1);
-                boolean showPlayer2 = !level.getGate().hasPlayerReached(2);
-
-                if (showPlayer1 && showPlayer2) {
-                    drawPlayer(player[0], player[1]);
-                } else if (showPlayer1) {
-                    drawSinglePlayer(player[0]);
-                } else if (showPlayer2) {
-                    drawSinglePlayer(player[1]);
+                if (level.getGate() != null) {
+                    drawGate(level.getGate());
                 }
-            }
 
-            drawInGameHud();
-            drawLevel4Message();
+                if (!gameOver && !levelComplete && !gamePaused) {
+                    boolean showPlayer1 = !level.getGate().hasPlayerReached(1);
+                    boolean showPlayer2 = !level.getGate().hasPlayerReached(2);
+                    showPlayer1 = showPlayer1 && !player[0].trappedInFakeGate;
+                    showPlayer2 = showPlayer2 && !player[1].trappedInFakeGate;
+
+                    if (showPlayer1 && showPlayer2) {
+                        drawPlayer(player[0], player[1]);
+                    } else if (showPlayer1) {
+                        drawSinglePlayer(player[0]);
+                    } else if (showPlayer2) {
+                        drawSinglePlayer(player[1]);
+                    }
+                }
+
+                drawInGameHud();
+                drawLevel4Message();
+            }
 
             if (gamePaused) {
                 drawScrim();
@@ -884,6 +1387,7 @@ public class Game extends GameEngine{
         level = new level1(loadImage("resources/bg1.png"));
         Image malePlayerSheet = loadImage("resources/playerMale.png");
         Image femalePlayerSheet = loadImage("resources/playerFamale.png");
+        Image enemySheet = loadImage("resources/enemy.png");
         platformImage = loadImage("resources/platform.png");
         Image gateSheet = loadImage("resources/gate.png");
         Image sawSheet = loadImage("resources/saw.png");
@@ -895,6 +1399,8 @@ public class Game extends GameEngine{
         femaleStay = slicePlayerRow(femalePlayerSheet, 0);
         femaleLeft = slicePlayerRow(femalePlayerSheet, 1);
         femaleJump = slicePlayerRow(femalePlayerSheet, 2);
+        enemyIdleFrames = sliceEnemyRow(enemySheet, 0);
+        enemyLeftFrames = sliceEnemyRow(enemySheet, 1);
 
         player[0] = new player(maleStay, maleLeft, maleJump);
         player[1] = new player(maleStay, maleLeft, maleJump);
@@ -920,6 +1426,7 @@ public class Game extends GameEngine{
         sawFrames[1] = subImage(sawSheet, 50, 0, 50, 50);
         pitImage = loadImage("resources/pit.png");
         knifeImage = loadImage("resources/knife.png");
+        missileImage = loadImage("resources/missile.png");
 
         gameOverImage = loadImage("resources/oneplayersurvive.png");
         victoryImage = loadImage("resources/victory.png");
@@ -927,6 +1434,15 @@ public class Game extends GameEngine{
         deadSound = loadAudio("resources/dead.wav");
         winSound = loadAudio("resources/win.wav");
         transSound = loadAudio("resources/trans.wav");
+        eatSound = loadAudio("resources/eat.wav");
+        enemyDeadSound = loadAudio("resources/enemyDead.wav");
+        missileLockSound = loadAudio("resources/missileLock.wav");
+        menuBgm = loadAudio("resources/bgmStart.wav");
+        levelBgms[1] = loadAudio("resources/bgm1.wav");
+        levelBgms[2] = loadAudio("resources/bgm2.wav");
+        levelBgms[3] = loadAudio("resources/bgm3.wav");
+        levelBgms[4] = loadAudio("resources/bgm4.wav");
+        levelBgms[5] = loadAudio("resources/bgm5.wav");
 
 
         level = new level1(loadImage("resources/bg1.png"));
@@ -940,10 +1456,13 @@ public class Game extends GameEngine{
                 pitImage,
                 knifeImage,
                 portalImage,
-                gateImage
+                gateImage,
+                enemyIdleFrames,
+                enemyLeftFrames
         );
 
         initializeLevelButtons();
+        updateBackgroundMusic();
     }
 
     private void initializeLevelButtons() {
@@ -956,7 +1475,7 @@ public class Game extends GameEngine{
         levelButtons[1] = new LevelButton(2, 620, 560, buttonWidth, buttonHeight, "Level 2: Trap Corridor", true);
         levelButtons[2] = new LevelButton(3, 980, 700, buttonWidth, buttonHeight, "Level 3: Windmill Valley", true);
         levelButtons[3] = new LevelButton(4, 1320, 500, buttonWidth, buttonHeight, "Level 4: Piggy Rage Tower", true);
-        levelButtons[4] = new LevelButton(5, 1500, 760, buttonWidth, buttonHeight, "Level 5: Boss Fight", false);
+        levelButtons[4] = new LevelButton(5, 1500, 760, buttonWidth, buttonHeight, "Level 5: Boss Fight", true);
     }
 
     private void restartLevel() {
@@ -964,6 +1483,7 @@ public class Game extends GameEngine{
         levelComplete = false;
         showAllLevelsComplete = false;
         resetLevelStats();
+        resetFakeGateDeathSequences();
 
         if (currentLevel == 1) {
             level = new level1(loadImage("resources/bg1.png"));
@@ -974,12 +1494,14 @@ public class Game extends GameEngine{
         } else if (currentLevel == 4) {
             level = new level4(loadImage("resources/bg1.png"));
         }
-//        else if (currentLevel == 5) {
-//            level = new level5(loadImage("resources/bg1.png"));
-//        }
+        else if (currentLevel == 5) {
+            level = new level5(loadImage("resources/bg1.png"));
+        }
 
         player[0].dead = false;
         player[1].dead = false;
+        player[0].trappedInFakeGate = false;
+        player[1].trappedInFakeGate = false;
         player[0].reachedGate = false;
         player[1].reachedGate = false;
         player[0].leftPressed = false;
@@ -1006,7 +1528,9 @@ public class Game extends GameEngine{
                 pitImage,
                 knifeImage,
                 portalImage,
-                gateImage
+                gateImage,
+                enemyIdleFrames,
+                enemyLeftFrames
         );
     }
 
@@ -1015,6 +1539,7 @@ public class Game extends GameEngine{
         levelComplete = false;
         showAllLevelsComplete = false;
         resetLevelStats();
+        resetFakeGateDeathSequences();
 
         if (currentLevel >= LAST_IMPLEMENTED_LEVEL) {
             levelComplete = false;
@@ -1043,12 +1568,14 @@ public class Game extends GameEngine{
         } else if (currentLevel == 4) {
             level = new level4(loadImage("resources/bg1.png"));
         }
-//        else if (currentLevel == 5) {
-//            level = new level5(loadImage("resources/bg1.png"));
-//        }
+        else if (currentLevel == 5) {
+            level = new level5(loadImage("resources/bg1.png"));
+        }
 
         player[0].dead = false;
         player[1].dead = false;
+        player[0].trappedInFakeGate = false;
+        player[1].trappedInFakeGate = false;
         player[0].reachedGate = false;
         player[1].reachedGate = false;
         player[0].leftPressed = false;
@@ -1067,7 +1594,19 @@ public class Game extends GameEngine{
             level.getGate().reset();
         }
 
-        level.load(player[0], player[1], platformImage, spikeImage, sawFrames, pitImage, knifeImage, portalImage, gateImage);
+        level.load(
+                player[0],
+                player[1],
+                platformImage,
+                spikeImage,
+                sawFrames,
+                pitImage,
+                knifeImage,
+                portalImage,
+                gateImage,
+                enemyIdleFrames,
+                enemyLeftFrames
+        );
     }
     private void updateLevelButtons() {
         for (int i = 0; i < levelButtons.length; i++) {
@@ -1081,6 +1620,7 @@ public class Game extends GameEngine{
         levelComplete = false;
         showAllLevelsComplete = false;
         resetLevelStats();
+        resetFakeGateDeathSequences();
 
         if (levelNumber == 1) {
             level = new level1(loadImage("resources/bg1.png"));
@@ -1091,12 +1631,14 @@ public class Game extends GameEngine{
         } else if (levelNumber == 4) {
             level = new level4(loadImage("resources/bg1.png"));
         }
-//        else if (levelNumber == 5) {
-//            level = new level5(loadImage("resources/bg1.png"));
-//        }
+        else if (levelNumber == 5) {
+            level = new level5(loadImage("resources/bg1.png"));
+        }
 
         player[0].dead = false;
         player[1].dead = false;
+        player[0].trappedInFakeGate = false;
+        player[1].trappedInFakeGate = false;
         player[0].reachedGate = false;
         player[1].reachedGate = false;
         player[0].leftPressed = false;
@@ -1123,7 +1665,9 @@ public class Game extends GameEngine{
                 pitImage,
                 knifeImage,
                 portalImage,
-                gateImage
+                gateImage,
+                enemyIdleFrames,
+                enemyLeftFrames
         );
     }
 
@@ -1225,6 +1769,36 @@ public class Game extends GameEngine{
                 return;
             }
 
+            if (currentLevel == 5 && level instanceof level5) {
+                level5 bossLevel = (level5)level;
+
+                if (event.getKeyCode() == KeyEvent.VK_W) {
+                    bossLevel.setGreedyDirection(0, -1);
+                }
+
+                if (event.getKeyCode() == KeyEvent.VK_A) {
+                    bossLevel.setGreedyDirection(-1, 0);
+                }
+
+                if (event.getKeyCode() == KeyEvent.VK_S) {
+                    bossLevel.setGreedyDirection(0, 1);
+                }
+
+                if (event.getKeyCode() == KeyEvent.VK_D) {
+                    bossLevel.setGreedyDirection(1, 0);
+                }
+
+                if (event.getKeyCode() == KeyEvent.VK_UP) {
+                    bossLevel.setJetpackPressed(true);
+                }
+
+                if (event.getKeyCode() == KeyEvent.VK_SPACE) {
+                    bossLevel.firePlayerMissile();
+                }
+
+                return;
+            }
+
             if(event.getKeyCode() == KeyEvent.VK_LEFT){
                 if (canControlPlayer(player[1])) {
                     player[1].leftPressed = true;
@@ -1269,6 +1843,14 @@ public class Game extends GameEngine{
 
     @Override
     public void keyReleased(KeyEvent event) {
+
+        if (currentLevel == 5 && level instanceof level5) {
+            if (event.getKeyCode() == KeyEvent.VK_UP) {
+                ((level5)level).setJetpackPressed(false);
+            }
+
+            return;
+        }
 
         if (event.getKeyCode() == KeyEvent.VK_LEFT) {
             player[1].leftPressed = false;
@@ -1372,6 +1954,9 @@ public class Game extends GameEngine{
         } else {
             masterVolumeGain = (float)(20.0 * Math.log10(masterVolume / 100.0));
         }
+
+        updateLoopVolume(currentBgm);
+        updateClipVolume(missileLockClip);
     }
 
     @Override
@@ -1470,6 +2055,15 @@ public class Game extends GameEngine{
                 currentLevel = 0;
                 showLevelSelect = false;
             }
+        } else if (currentLevel == 5 && level instanceof level5 && !gameOver && !levelComplete && !gamePaused) {
+            ((level5)level).setJetpackPressed(true);
+        }
+    }
+
+    @Override
+    public void mouseReleased(MouseEvent event) {
+        if (currentLevel == 5 && level instanceof level5) {
+            ((level5)level).setJetpackPressed(false);
         }
     }
 }

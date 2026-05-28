@@ -26,18 +26,17 @@ public class level1 extends level {
             Image pitImage,
             Image knifeImage,
             Image[] portalImage,
-            Image[] gateImage
+            Image[] gateImage,
+            Image[] enemyIdleFrames,
+            Image[] enemyLeftFrames
     ) {
         this.player1 = player1;
         this.player2 = player2;
         this.player1.jumpPower = player.DEFAULT_JUMP_POWER;
         this.player2.jumpPower = player.DEFAULT_JUMP_POWER;
 
-        platforms.clear();
-        traps.clear();
-        portals.clear();
-        portalParticles.clear();
-        windVents.clear();
+        clearLevelObjects();
+        enemies.clear();
 
         spawnX1 = 100;
         spawnY1 = 880;
@@ -61,6 +60,7 @@ public class level1 extends level {
         addWindVent();
 
         gate = new Gate(goalX, goalY, goalWidth, goalHeight, gateImage);
+        addEnemiesToHalfPlatforms(enemyIdleFrames, enemyLeftFrames);
     }
 
     private void addPlatforms(Image platformImage) {
@@ -131,13 +131,13 @@ public class level1 extends level {
         traps.add(new FakeGateTrap(
                 500, 880,
                 BLOCK_SIZE, BLOCK_SIZE,
-                45,
-                gateImage[0],
-                spikeImage
+                gateImage
         ));
     }
 
     private void addBlockRun(double x, double y, int blocks, Image platformImage) {
+        registerEnemyPlatform(x, y, blocks);
+
         for (int i = 0; i < blocks; i++) {
             addBlock(x + i * BLOCK_SIZE, y, platformImage);
         }

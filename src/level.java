@@ -15,8 +15,18 @@ public abstract class level {
     ArrayList<Portal> portals = new ArrayList<>();
     ArrayList<PortalParticle> portalParticles = new ArrayList<>();
     ArrayList<WindVent> windVents = new ArrayList<>();
+    ArrayList<Enemy> enemies = new ArrayList<>();
+    ArrayList<SurfaceSegment> enemyPlatformSegments = new ArrayList<>();
     Gate gate;
     private boolean playerTeleportedThisFrame;
+    private boolean player1EatenThisFrame;
+    private boolean player2EatenThisFrame;
+    private boolean player1FakeGateEatenThisFrame;
+    private boolean player2FakeGateEatenThisFrame;
+    private boolean enemyDiedThisFrame;
+    private int enemiesKilledThisFrame;
+    private int player1EnemyKillsThisFrame;
+    private int player2EnemyKillsThisFrame;
 
     double spawnX1, spawnY1;
     double spawnX2, spawnY2;
@@ -36,11 +46,21 @@ public abstract class level {
             Image pitImage,
             Image knifeImage,
             Image[] portalImage,
-            Image[] gateImage
+            Image[] gateImage,
+            Image[] enemyIdleFrames,
+            Image[] enemyLeftFrames
     );
 
     public void update(double dt) {
         playerTeleportedThisFrame = false;
+        player1EatenThisFrame = false;
+        player2EatenThisFrame = false;
+        player1FakeGateEatenThisFrame = false;
+        player2FakeGateEatenThisFrame = false;
+        enemyDiedThisFrame = false;
+        enemiesKilledThisFrame = 0;
+        player1EnemyKillsThisFrame = 0;
+        player2EnemyKillsThisFrame = 0;
 
         updateDeadPlayers(dt);
 
@@ -64,6 +84,8 @@ public abstract class level {
 
         boolean player1Teleported = isPlayerActive(player1) && handlePortals(player1);
         boolean player2Teleported = isPlayerActive(player2) && handlePortals(player2);
+
+        updateEnemies(dt);
 
         if (isPlayerActive(player1)) {
             handlePlatformCollision(player1);
@@ -90,13 +112,20 @@ public abstract class level {
             }
 
             trap.update(dt, player1, player2);
+            collectFakeGateEvents(trap);
 
             if (isPlayerActive(player1) && trap.checkCollision(player1)) {
                 trap.onCollide(player1);
+                if (trap instanceof FakeGateTrap) {
+                    ((FakeGateTrap)trap).setTrappedPlayerNumber(1);
+                }
             }
 
             if (isPlayerActive(player2) && trap.checkCollision(player2)) {
                 trap.onCollide(player2);
+                if (trap instanceof FakeGateTrap) {
+                    ((FakeGateTrap)trap).setTrappedPlayerNumber(2);
+                }
             }
         }
 
@@ -115,7 +144,23 @@ public abstract class level {
     }
 
     private boolean isPlayerActive(player p) {
-        return p != null && !p.dead && !p.reachedGate;
+        return p != null && !p.dead && !p.reachedGate && !p.trappedInFakeGate;
+    }
+
+    private void collectFakeGateEvents(Trap trap) {
+        if (!(trap instanceof FakeGateTrap)) {
+            return;
+        }
+
+        FakeGateTrap fakeGate = (FakeGateTrap)trap;
+
+        if (fakeGate.didEatPlayer(1)) {
+            player1FakeGateEatenThisFrame = true;
+        }
+
+        if (fakeGate.didEatPlayer(2)) {
+            player2FakeGateEatenThisFrame = true;
+        }
     }
 
     private void updateDeadPlayers(double dt) {
@@ -195,6 +240,40 @@ public abstract class level {
     private void updateWindVents(double dt) {
         for (WindVent windVent : windVents) {
             windVent.update(dt, player1, player2);
+        }
+    }
+
+    private void updateEnemies(double dt) {
+        for (Enemy enemy : enemies) {
+            enemy.update(dt, player1, player2);
+
+            handleEnemyCollision(enemy, player1, 1);
+            handleEnemyCollision(enemy, player2, 2);
+        }
+    }
+
+    private void handleEnemyCollision(Enemy enemy, player p, int playerNumber) {
+        if (!enemy.canCollide() || !isPlayerActive(p)) {
+            return;
+        }
+
+        Enemy.ContactResult result = enemy.handleCollision(p);
+
+        if (result == Enemy.ContactResult.PLAYER_EATEN) {
+            if (playerNumber == 1) {
+                player1EatenThisFrame = true;
+            } else {
+                player2EatenThisFrame = true;
+            }
+        } else if (result == Enemy.ContactResult.ENEMY_KILLED) {
+            enemyDiedThisFrame = true;
+            enemiesKilledThisFrame++;
+
+            if (playerNumber == 1) {
+                player1EnemyKillsThisFrame++;
+            } else {
+                player2EnemyKillsThisFrame++;
+            }
         }
     }
 
@@ -340,6 +419,191 @@ public abstract class level {
 
     public ArrayList<WindVent> getWindVents() {
         return windVents;
+    }
+
+    public ArrayList<Enemy> getEnemies() {
+        return enemies;
+    }
+
+    public boolean wasPlayerEaten(int playerNumber) {
+        if (playerNumber == 1) {
+            return player1EatenThisFrame;
+        }
+
+        if (playerNumber == 2) {
+            return player2EatenThisFrame;
+        }
+
+        return false;
+    }
+
+    public boolean wasPlayerEatenByFakeGate(int playerNumber) {
+        if (playerNumber == 1) {
+            return player1FakeGateEatenThisFrame;
+        }
+
+        if (playerNumber == 2) {
+            return player2FakeGateEatenThisFrame;
+        }
+
+        return false;
+    }
+
+    public boolean didEnemyDie() {
+        return enemyDiedThisFrame;
+    }
+
+    public int getEnemiesKilledThisFrame() {
+        return enemiesKilledThisFrame;
+    }
+
+    public int getEnemyKillsForPlayer(int playerNumber) {
+        if (playerNumber == 1) {
+            return player1EnemyKillsThisFrame;
+        }
+
+        if (playerNumber == 2) {
+            return player2EnemyKillsThisFrame;
+        }
+
+        return 0;
+    }
+
+    protected void clearLevelObjects() {
+        platforms.clear();
+        traps.clear();
+        portals.clear();
+        portalParticles.clear();
+        windVents.clear();
+        enemies.clear();
+        enemyPlatformSegments.clear();
+    }
+
+    protected void registerEnemyPlatform(double x, double y, int blocks) {
+        if (blocks <= 0) {
+            return;
+        }
+
+        enemyPlatformSegments.add(new SurfaceSegment(x, x + blocks * Platform.TILE_SIZE, y));
+    }
+
+    protected void addEnemiesToHalfPlatforms(Image[] enemyIdleFrames, Image[] enemyLeftFrames) {
+        enemies.clear();
+
+        if (enemyIdleFrames == null || enemyLeftFrames == null ||
+                enemyIdleFrames.length == 0 || enemyLeftFrames.length == 0) {
+            return;
+        }
+
+        ArrayList<SurfaceSegment> segments = enemyPlatformSegments.isEmpty()
+                ? buildSurfaceSegments()
+                : new ArrayList<>(enemyPlatformSegments);
+        ArrayList<SurfaceSegment> eligibleSegments = new ArrayList<>();
+
+        for (SurfaceSegment segment : segments) {
+            if (isEnemyEligibleSegment(segment)) {
+                eligibleSegments.add(segment);
+            }
+        }
+
+        if (eligibleSegments.isEmpty()) {
+            return;
+        }
+
+        int enemyCount = Math.max(1, eligibleSegments.size() / 2);
+
+        for (int i = 0; i < eligibleSegments.size() && enemies.size() < enemyCount; i += 2) {
+            addEnemyOnSegment(eligibleSegments.get(i), enemyIdleFrames, enemyLeftFrames);
+        }
+
+        for (int i = 1; i < eligibleSegments.size() && enemies.size() < enemyCount; i += 2) {
+            addEnemyOnSegment(eligibleSegments.get(i), enemyIdleFrames, enemyLeftFrames);
+        }
+    }
+
+    private ArrayList<SurfaceSegment> buildSurfaceSegments() {
+        ArrayList<Rectangle2D.Double> bounds = new ArrayList<>();
+
+        for (Platform platform : platforms) {
+            if (platform instanceof BreakawayPitPlatform) {
+                continue;
+            }
+
+            bounds.addAll(platform.getCollisionBounds());
+        }
+
+        bounds.sort((a, b) -> {
+            int yCompare = Double.compare(a.y, b.y);
+
+            if (yCompare != 0) {
+                return yCompare;
+            }
+
+            return Double.compare(a.x, b.x);
+        });
+
+        ArrayList<SurfaceSegment> segments = new ArrayList<>();
+
+        for (Rectangle2D.Double bound : bounds) {
+            if (bound.width <= 0 || bound.height <= 0) {
+                continue;
+            }
+
+            if (segments.isEmpty()) {
+                segments.add(new SurfaceSegment(bound.x, bound.x + bound.width, bound.y));
+                continue;
+            }
+
+            SurfaceSegment current = segments.get(segments.size() - 1);
+
+            if (Math.abs(current.top - bound.y) < 0.01 &&
+                    Math.abs(current.right - bound.x) < 0.01) {
+                current.right = bound.x + bound.width;
+            } else {
+                segments.add(new SurfaceSegment(bound.x, bound.x + bound.width, bound.y));
+            }
+        }
+
+        return segments;
+    }
+
+    private boolean isEnemyEligibleSegment(SurfaceSegment segment) {
+        if (segment.width() < 100) {
+            return false;
+        }
+
+        return !isPointStandingOnSegment(spawnX1, spawnY1, segment) &&
+                !isPointStandingOnSegment(spawnX2, spawnY2, segment) &&
+                !isPointStandingOnSegment(goalX, goalY, segment);
+    }
+
+    private boolean isPointStandingOnSegment(double x, double y, SurfaceSegment segment) {
+        double bottom = y + 50;
+
+        return bottom >= segment.top - 1 &&
+                bottom <= segment.top + 1 &&
+                x + 50 > segment.left &&
+                x < segment.right;
+    }
+
+    private void addEnemyOnSegment(SurfaceSegment segment, Image[] enemyIdleFrames, Image[] enemyLeftFrames) {
+        enemies.add(new Enemy(segment.left, segment.right, segment.top, enemyIdleFrames, enemyLeftFrames));
+    }
+
+    private static class SurfaceSegment {
+        double left;
+        double right;
+        double top;
+
+        SurfaceSegment(double left, double right, double top) {
+            this.left = left;
+            this.right = right;
+            this.top = top;
+        }
+
+        double width() {
+            return right - left;
+        }
     }
 
     private void updatePortalParticles(double dt) {

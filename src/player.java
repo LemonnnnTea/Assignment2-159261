@@ -6,6 +6,7 @@ public class player {
     public static final double DEFAULT_JUMP_POWER = 550;
 
     double x, y;
+    double previousX, previousY;
     int height = 50, width = 50;
     Image[] jump, left, stay;
     boolean faceRight = true;
@@ -31,6 +32,7 @@ public class player {
     double deadTimer = 0;
 
     boolean reachedGate = false;
+    boolean trappedInFakeGate = false;
 
     public player(Image[] stay, Image[] left, Image[] jump) {
         this.stay = stay;
@@ -60,6 +62,18 @@ public class player {
             jumpPressed = false;
             return;
         }
+
+        if (trappedInFakeGate) {
+            velocityX = 0;
+            velocityY = 0;
+            leftPressed = false;
+            rightPressed = false;
+            jumpPressed = false;
+            return;
+        }
+
+        previousX = x;
+        previousY = y;
 
         velocityX = 0;
 
@@ -137,6 +151,7 @@ public class player {
         }
 
         dead = true;
+        trappedInFakeGate = false;
         deadTimer = 0;
         velocityX = 0;
         velocityY = 0;
@@ -154,6 +169,8 @@ public class player {
     public void respawn(double spawnX, double spawnY) {
         x = spawnX;
         y = spawnY;
+        previousX = spawnX;
+        previousY = spawnY;
         velocityX = 0;
         velocityY = 0;
         leftPressed = false;
@@ -162,6 +179,7 @@ public class player {
         onGround = false;
         dead = false;
         deadTimer = 0;
+        trappedInFakeGate = false;
     }
 
     private void updateAnimation(double dt) {

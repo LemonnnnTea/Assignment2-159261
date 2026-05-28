@@ -27,18 +27,17 @@ public class level3 extends level {
             Image pitImage,
             Image knifeImage,
             Image[] portalImage,
-            Image[] gateImage
+            Image[] gateImage,
+            Image[] enemyIdleFrames,
+            Image[] enemyLeftFrames
     ) {
         this.player1 = player1;
         this.player2 = player2;
         this.player1.jumpPower = JUMP_POWER;
         this.player2.jumpPower = JUMP_POWER;
 
-        platforms.clear();
-        traps.clear();
-        portals.clear();
-        portalParticles.clear();
-        windVents.clear();
+        clearLevelObjects();
+        enemies.clear();
 
         spawnX1 = 80;
         spawnY1 = 880;
@@ -63,6 +62,7 @@ public class level3 extends level {
         addSaws(sawFrames);
 
         gate = new Gate(goalX, goalY, goalWidth, goalHeight, gateImage);
+        addEnemiesToHalfPlatforms(enemyIdleFrames, enemyLeftFrames);
     }
 
     private void addPlatforms(Image platformImage, Image pitImage) {
@@ -116,9 +116,7 @@ public class level3 extends level {
         traps.add(new FakeGateTrap(
                 1850, 400,
                 TRAP_SIZE, TRAP_SIZE,
-                45,
-                gateImage[0],
-                spikeImage
+                gateImage
         ));
     }
 
@@ -132,10 +130,12 @@ public class level3 extends level {
     }
 
     private void addBlockRun(double x, double y, int blocks, Image platformImage, Image pitImage, double... pitXs) {
+        registerEnemyPlatform(x, y, blocks);
+
         for (int i = 0; i < blocks; i++) {
             double blockX = x + i * BLOCK_SIZE;
 
-            if (isPitBlock(blockX, pitXs)) {
+            if (isPitBlock(blockX, x, blocks, pitXs)) {
                 platforms.add(new BreakawayPitPlatform(blockX, y, pitImage));
             } else {
                 platforms.add(new Platform(blockX, y, BLOCK_SIZE, BLOCK_SIZE, platformImage));
@@ -143,9 +143,17 @@ public class level3 extends level {
         }
     }
 
-    private boolean isPitBlock(double x, double[] pitXs) {
+    private boolean isPitBlock(double x, double runStartX, int blocks, double[] pitXs) {
+        double runEndX = runStartX + (blocks - 1) * BLOCK_SIZE;
+
         for (double pitX : pitXs) {
-            if (Math.abs(x - pitX) < 0.01) {
+            boolean pitStartsHere = Math.abs(x - pitX) < 0.01;
+            boolean pitContinuesRight = pitX + BLOCK_SIZE <= runEndX &&
+                    Math.abs(x - (pitX + BLOCK_SIZE)) < 0.01;
+            boolean pitContinuesLeftAtRunEnd = pitX + BLOCK_SIZE > runEndX &&
+                    Math.abs(x - (pitX - BLOCK_SIZE)) < 0.01;
+
+            if (pitStartsHere || pitContinuesRight || pitContinuesLeftAtRunEnd) {
                 return true;
             }
         }
