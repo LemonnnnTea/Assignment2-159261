@@ -76,7 +76,7 @@ public class level2 extends level {
         addBlockRun(400, 780, 4, platformImage, pitImage);
         addBlockRun(700, 680, 5, platformImage, pitImage);
         addBlockRun(1050, 600, 5, platformImage, pitImage, 1100, 1250);
-        addBlockRun(1400, 710, 5, platformImage, pitImage, 1450, 1600);
+        addBlockRun(1400, 710, 5, platformImage, pitImage, new double[]{1500}, 1450, 1600);
         addBlockRun(1650, 830, 4, platformImage, pitImage);
     }
 
@@ -100,7 +100,6 @@ public class level2 extends level {
         traps.add(new Spike(1600, 880, TRAP_SIZE, TRAP_SIZE, spikeImage));
         traps.add(new Spike(1750, 880, TRAP_SIZE, TRAP_SIZE, spikeImage));
         traps.add(new Spike(750, 630, TRAP_SIZE, TRAP_SIZE, spikeImage));
-        traps.add(new Spike(1500, 660, TRAP_SIZE, TRAP_SIZE, spikeImage));
     }
 
     private void addFakeGate(Image[] gateImage, Image spikeImage) {
@@ -117,17 +116,32 @@ public class level2 extends level {
     }
 
     private void addBlockRun(double x, double y, int blocks, Image platformImage, Image pitImage, double... pitXs) {
+        addBlockRun(x, y, blocks, platformImage, pitImage, new double[0], pitXs);
+    }
+
+    private void addBlockRun(double x, double y, int blocks, Image platformImage, Image pitImage,
+                             double[] forcedPlatformXs, double... pitXs) {
         registerEnemyPlatform(x, y, blocks);
 
         for (int i = 0; i < blocks; i++) {
             double blockX = x + i * BLOCK_SIZE;
 
-            if (isPitBlock(blockX, x, blocks, pitXs)) {
+            if (!isForcedPlatform(blockX, forcedPlatformXs) && isPitBlock(blockX, x, blocks, pitXs)) {
                 platforms.add(new BreakawayPitPlatform(blockX, y, pitImage));
             } else {
                 platforms.add(new Platform(blockX, y, BLOCK_SIZE, BLOCK_SIZE, platformImage));
             }
         }
+    }
+
+    private boolean isForcedPlatform(double x, double[] forcedPlatformXs) {
+        for (double platformX : forcedPlatformXs) {
+            if (Math.abs(x - platformX) < 0.01) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private boolean isPitBlock(double x, double runStartX, int blocks, double[] pitXs) {

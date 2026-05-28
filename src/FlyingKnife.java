@@ -155,7 +155,7 @@ public class FlyingKnife extends Trap {
     }
 
     public double getDirectionAngleDegrees() {
-        return Math.toDegrees(Math.atan2(velocityY, velocityX) - Math.PI);
+        return Math.toDegrees(Math.atan2(velocityY, velocityX));
     }
 
     @Override

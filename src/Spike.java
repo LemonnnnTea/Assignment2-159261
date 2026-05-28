@@ -1,7 +1,7 @@
 import java.awt.*;
 
 public class Spike extends Trap {
-    private static final double COLLISION_WIDTH = 50;
+    private static final double COLLISION_HORIZONTAL_INSET = 5;
     private static final double COLLISION_HEIGHT = 10;
 
     public Spike(double x, double y, double width, double height, Image image) {
@@ -15,12 +15,13 @@ public class Spike extends Trap {
 
     @Override
     public boolean checkCollision(player p) {
-        double collisionX = x + (width - COLLISION_WIDTH) / 2;
+        double collisionX = x + COLLISION_HORIZONTAL_INSET;
         double collisionY = y + height - COLLISION_HEIGHT;
+        double collisionWidth = width - COLLISION_HORIZONTAL_INSET * 2;
 
         return CollisionManager.rectCollision(
                 p.x, p.y, p.width, p.height,
-                collisionX, collisionY, COLLISION_WIDTH, COLLISION_HEIGHT
+                collisionX, collisionY, collisionWidth, COLLISION_HEIGHT
         );
     }
 }

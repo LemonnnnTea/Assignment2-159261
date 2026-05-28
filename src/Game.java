@@ -85,6 +85,7 @@ public class Game extends GameEngine{
     AudioClip eatSound;
     AudioClip enemyDeadSound;
     AudioClip missileLockSound;
+    AudioClip stage3Sound;
     AudioClip menuBgm;
     AudioClip[] levelBgms = new AudioClip[6];
     AudioClip currentBgm;
@@ -136,6 +137,7 @@ public class Game extends GameEngine{
     Image pitImage;
     Image knifeImage;
     Image missileImage;
+    Image[] bossFrames;
     Image[] portalImage;
     Image[] gateImage;
 
@@ -290,6 +292,17 @@ public class Game extends GameEngine{
 
         for (int i = 0; i < frames.length; i++) {
             frames[i] = subImage(sheet, i * spriteSize, row * spriteSize, spriteSize, spriteSize);
+        }
+
+        return frames;
+    }
+
+    private Image[] sliceBossFrames(Image sheet) {
+        int spriteSize = 220;
+        Image[] frames = new Image[5];
+
+        for (int i = 0; i < frames.length; i++) {
+            frames[i] = subImage(sheet, i * spriteSize, 0, spriteSize, spriteSize);
         }
 
         return frames;
@@ -705,11 +718,16 @@ public class Game extends GameEngine{
                     playSound(deadSound);
                 }
 
+                if (bossLevel.consumeStage3SoundRequest()) {
+                    playSound(stage3Sound);
+                }
+
                 if (bossLevel.isBossFightGameOver()) {
                     gameOver = true;
                 }
 
-                updateMissileLockSound(!gameOver && !bossLevel.isLevelComplete() && bossLevel.hasLockedBossMissile(), dt);
+                updateMissileLockSound(!gameOver && !bossLevel.isLevelComplete() &&
+                        !bossLevel.isStage3IntroActive() && bossLevel.hasLockedBossMissile(), dt);
 
                 if (bossLevel.isLevelComplete()) {
                     updateMissileLockSound(false, dt);
@@ -1011,6 +1029,10 @@ public class Game extends GameEngine{
 
         drawLevel5LeftPanel(bossLevel);
         drawLevel5RightPanel(bossLevel);
+
+        if (bossLevel.isStage3IntroActive()) {
+            drawStage3IntroOverlay(bossLevel);
+        }
     }
 
     private void drawLevel5LeftPanel(level5 bossLevel) {
@@ -1093,8 +1115,14 @@ public class Game extends GameEngine{
         drawBossHealthBar(bossLevel);
         drawBattleHud(bossLevel);
         drawBattlePig(bossLevel);
-        drawBoss(bossLevel);
+        if (!bossLevel.isBossExplosionActive() && bossLevel.bossHp > 0) {
+            drawBoss(bossLevel);
+        }
         drawLevel5WeaponsAndHazards(bossLevel);
+
+        if (bossLevel.isBossExplosionActive()) {
+            drawBossExplosion(bossLevel);
+        }
     }
 
     private void drawBossHealthBar(level5 bossLevel) {
@@ -1143,6 +1171,22 @@ public class Game extends GameEngine{
     }
 
     private void drawBoss(level5 bossLevel) {
+        if (bossFrames != null && bossFrames.length > 0) {
+            int frameIndex = bossLevel.getBossFrameIndex();
+            if (frameIndex < 0 || frameIndex >= bossFrames.length) {
+                frameIndex = 0;
+            }
+
+            drawImage(
+                    bossFrames[frameIndex],
+                    level5.BOSS_DRAW_X,
+                    level5.BOSS_DRAW_Y,
+                    level5.BOSS_DRAW_W,
+                    level5.BOSS_DRAW_H
+            );
+            return;
+        }
+
         changeColor(new Color(130, 35, 48));
         drawSolidRectangle(level5.BOSS_X, level5.BOSS_Y, level5.BOSS_W, level5.BOSS_H);
         changeColor(new Color(210, 70, 80));
@@ -1155,6 +1199,61 @@ public class Game extends GameEngine{
         drawSolidCircle(level5.BOSS_X + 116, level5.BOSS_Y + 82, 6);
         changeColor(new Color(255, 190, 80));
         drawRectangle(level5.BOSS_X, level5.BOSS_Y, level5.BOSS_W, level5.BOSS_H, 4);
+    }
+
+    private void drawStage3IntroOverlay(level5 bossLevel) {
+        drawScrim();
+        drawPanel(390, 420, 1140, 240);
+        drawCenteredText(390, 525, 1140, level5.STAGE3_MESSAGE, "Arial", 32, true, COLOR_ACCENT_2);
+        drawCenteredText(
+                390,
+                595,
+                1140,
+                String.format("%.1f", bossLevel.getStage3IntroTimer()),
+                "Arial",
+                34,
+                true,
+                COLOR_TEXT
+        );
+    }
+
+    private void drawBossExplosion(level5 bossLevel) {
+        double centerX = level5.BOSS_DRAW_X + level5.BOSS_DRAW_W / 2.0;
+        double centerY = level5.BOSS_DRAW_Y + level5.BOSS_DRAW_H / 2.0;
+        double progress = bossLevel.getBossExplosionProgress();
+        double fade = Math.max(0, 1.0 - progress * 0.75);
+        int coreAlpha = (int)(220 * fade);
+        int blastAlpha = (int)(180 * fade);
+        int smokeAlpha = (int)(120 * fade);
+
+        changeColor(new Color(255, 245, 185, coreAlpha));
+        drawSolidCircle(centerX, centerY, 58 + progress * 50);
+        changeColor(new Color(255, 120, 30, blastAlpha));
+        drawSolidCircle(centerX, centerY, 96 + progress * 85);
+        changeColor(new Color(170, 30, 25, smokeAlpha));
+        drawSolidCircle(centerX, centerY, 140 + progress * 130);
+
+        for (level5.BossExplosionParticle particle : bossLevel.bossExplosionParticles) {
+            double alphaRatio = particle.alphaRatio();
+            if (alphaRatio <= 0) {
+                continue;
+            }
+
+            int alpha = (int)(230 * alphaRatio);
+            Color color;
+            if (particle.colorIndex == 0) {
+                color = new Color(255, 235, 150, alpha);
+            } else if (particle.colorIndex == 1) {
+                color = new Color(255, 140, 30, alpha);
+            } else if (particle.colorIndex == 2) {
+                color = new Color(230, 55, 35, alpha);
+            } else {
+                color = new Color(80, 70, 70, Math.min(190, alpha));
+            }
+
+            changeColor(color);
+            drawSolidCircle(particle.x, particle.y, particle.radius * alphaRatio);
+        }
     }
 
     private void drawLevel5WeaponsAndHazards(level5 bossLevel) {
@@ -1388,6 +1487,7 @@ public class Game extends GameEngine{
         Image malePlayerSheet = loadImage("resources/playerMale.png");
         Image femalePlayerSheet = loadImage("resources/playerFamale.png");
         Image enemySheet = loadImage("resources/enemy.png");
+        Image bossSheet = loadImage("resources/boss.png");
         platformImage = loadImage("resources/platform.png");
         Image gateSheet = loadImage("resources/gate.png");
         Image sawSheet = loadImage("resources/saw.png");
@@ -1401,6 +1501,7 @@ public class Game extends GameEngine{
         femaleJump = slicePlayerRow(femalePlayerSheet, 2);
         enemyIdleFrames = sliceEnemyRow(enemySheet, 0);
         enemyLeftFrames = sliceEnemyRow(enemySheet, 1);
+        bossFrames = sliceBossFrames(bossSheet);
 
         player[0] = new player(maleStay, maleLeft, maleJump);
         player[1] = new player(maleStay, maleLeft, maleJump);
@@ -1437,6 +1538,7 @@ public class Game extends GameEngine{
         eatSound = loadAudio("resources/eat.wav");
         enemyDeadSound = loadAudio("resources/enemyDead.wav");
         missileLockSound = loadAudio("resources/missileLock.wav");
+        stage3Sound = loadAudio("resources/stage3.wav");
         menuBgm = loadAudio("resources/bgmStart.wav");
         levelBgms[1] = loadAudio("resources/bgm1.wav");
         levelBgms[2] = loadAudio("resources/bgm2.wav");
@@ -1771,24 +1873,30 @@ public class Game extends GameEngine{
 
             if (currentLevel == 5 && level instanceof level5) {
                 level5 bossLevel = (level5)level;
+                boolean controlsReversed = bossLevel.areControlsReversed();
+
+                if (bossLevel.isStage3IntroActive()) {
+                    return;
+                }
 
                 if (event.getKeyCode() == KeyEvent.VK_W) {
-                    bossLevel.setGreedyDirection(0, -1);
+                    bossLevel.setGreedyDirection(0, controlsReversed ? 1 : -1);
                 }
 
                 if (event.getKeyCode() == KeyEvent.VK_A) {
-                    bossLevel.setGreedyDirection(-1, 0);
+                    bossLevel.setGreedyDirection(controlsReversed ? 1 : -1, 0);
                 }
 
                 if (event.getKeyCode() == KeyEvent.VK_S) {
-                    bossLevel.setGreedyDirection(0, 1);
+                    bossLevel.setGreedyDirection(0, controlsReversed ? -1 : 1);
                 }
 
                 if (event.getKeyCode() == KeyEvent.VK_D) {
-                    bossLevel.setGreedyDirection(1, 0);
+                    bossLevel.setGreedyDirection(controlsReversed ? -1 : 1, 0);
                 }
 
-                if (event.getKeyCode() == KeyEvent.VK_UP) {
+                if ((!controlsReversed && event.getKeyCode() == KeyEvent.VK_UP) ||
+                        (controlsReversed && event.getKeyCode() == KeyEvent.VK_DOWN)) {
                     bossLevel.setJetpackPressed(true);
                 }
 
@@ -1845,8 +1953,15 @@ public class Game extends GameEngine{
     public void keyReleased(KeyEvent event) {
 
         if (currentLevel == 5 && level instanceof level5) {
-            if (event.getKeyCode() == KeyEvent.VK_UP) {
-                ((level5)level).setJetpackPressed(false);
+            level5 bossLevel = (level5)level;
+
+            if (bossLevel.isStage3IntroActive()) {
+                return;
+            }
+
+            if ((!bossLevel.areControlsReversed() && event.getKeyCode() == KeyEvent.VK_UP) ||
+                    (bossLevel.areControlsReversed() && event.getKeyCode() == KeyEvent.VK_DOWN)) {
+                bossLevel.setJetpackPressed(false);
             }
 
             return;

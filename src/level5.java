@@ -17,9 +17,22 @@ public class level5 extends level {
     static final double BOSS_Y = 350;
     static final double BOSS_W = 160;
     static final double BOSS_H = 260;
+    static final double BOSS_DRAW_X = 1660;
+    static final double BOSS_DRAW_Y = 350;
+    static final double BOSS_DRAW_W = 220;
+    static final double BOSS_DRAW_H = 220;
+    static final double BOSS_MOUTH_X = BOSS_DRAW_X + BOSS_DRAW_W * 0.20;
+    static final double BOSS_MOUTH_Y = BOSS_DRAW_Y + BOSS_DRAW_H * 0.62;
     static final int MAX_LIVES = 3;
     static final int MAX_MISSILES = 5;
     static final double MAX_BOSS_HP = 1200;
+    static final double STAGE3_INTRO_DURATION = 3.0;
+    static final String STAGE3_MESSAGE = "The Stage3 is coming, all controls will be reserved.";
+    static final double BOSS_EXPLOSION_DURATION = 3.0;
+    private static final double BOSS_ATTACK_FRAME_TIME = 0.14;
+    private static final int BOSS_ATTACK_FRAME_COUNT = 5;
+    private static final int BOSS_ATTACK_MISSILE_FRAME = 3;
+    private static final double BOSS_ATTACK_MISSILE_DELAY = BOSS_ATTACK_FRAME_TIME * BOSS_ATTACK_MISSILE_FRAME;
 
     enum ItemType {
         MISSILE,
@@ -123,6 +136,54 @@ public class level5 extends level {
         }
     }
 
+    static class BossExplosionParticle {
+        double x, y;
+        double vx, vy;
+        double radius;
+        double age = 0;
+        double life;
+        double delay;
+        int colorIndex;
+
+        BossExplosionParticle(double x, double y, double vx, double vy, double radius,
+                              double life, double delay, int colorIndex) {
+            this.x = x;
+            this.y = y;
+            this.vx = vx;
+            this.vy = vy;
+            this.radius = radius;
+            this.life = life;
+            this.delay = delay;
+            this.colorIndex = colorIndex;
+        }
+
+        void update(double dt) {
+            age += dt;
+
+            if (age < delay) {
+                return;
+            }
+
+            x += vx * dt;
+            y += vy * dt;
+            vx *= 0.98;
+            vy = vy * 0.98 + 120 * dt;
+        }
+
+        double alphaRatio() {
+            if (age < delay) {
+                return 0;
+            }
+
+            double activeAge = age - delay;
+            if (activeAge >= life) {
+                return 0;
+            }
+
+            return 1.0 - activeAge / life;
+        }
+    }
+
     ArrayList<GridPoint> greedyPig = new ArrayList<>();
     ArrayList<SupplyItem> supplyItems = new ArrayList<>();
     ArrayList<Shot> knives = new ArrayList<>();
@@ -131,6 +192,7 @@ public class level5 extends level {
     ArrayList<FlyingEnemy> flyingEnemies = new ArrayList<>();
     ArrayList<BossMissile> bossMissiles = new ArrayList<>();
     ArrayList<Boolean> missileInventory = new ArrayList<>();
+    ArrayList<BossExplosionParticle> bossExplosionParticles = new ArrayList<>();
 
     double bossHp = MAX_BOSS_HP;
     int missileAmmo = 0;
@@ -158,6 +220,16 @@ public class level5 extends level {
     private double missileCooldownTimer = 0;
     private double enemySpawnTimer = 0;
     private double bossMissileTimer = 0;
+    private boolean stage3IntroStarted = false;
+    private boolean stage3IntroActive = false;
+    private double stage3IntroTimer = 0;
+    private boolean stage3SoundRequested = false;
+    private boolean bossAttackAnimating = false;
+    private double bossAttackAnimationTimer = 0;
+    private int bossAttackFrame = 0;
+    private boolean bossAttackMissileFired = false;
+    private boolean bossExplosionActive = false;
+    private double bossExplosionTimer = 0;
     private boolean enemyDiedThisFrame = false;
     private int enemyKillsThisFrame = 0;
     private int lifeLossesThisFrame = 0;
@@ -214,6 +286,16 @@ public class level5 extends level {
         missileCooldownTimer = 0;
         enemySpawnTimer = 0;
         bossMissileTimer = 0;
+        stage3IntroStarted = false;
+        stage3IntroActive = false;
+        stage3IntroTimer = 0;
+        stage3SoundRequested = false;
+        bossAttackAnimating = false;
+        bossAttackAnimationTimer = 0;
+        bossAttackFrame = 0;
+        bossAttackMissileFired = false;
+        bossExplosionActive = false;
+        bossExplosionTimer = 0;
 
         supplyItems.clear();
         knives.clear();
@@ -222,6 +304,7 @@ public class level5 extends level {
         flyingEnemies.clear();
         bossMissiles.clear();
         missileInventory.clear();
+        bossExplosionParticles.clear();
 
         resetGreedyPig();
         spawnMissingSupplies();
@@ -265,6 +348,25 @@ public class level5 extends level {
             return;
         }
 
+        if (bossExplosionActive) {
+            updateBossExplosion(dt);
+            jetpackPressed = false;
+            placePlayers();
+            return;
+        }
+
+        if (stage3IntroActive) {
+            stage3IntroTimer = Math.max(0, stage3IntroTimer - dt);
+            jetpackPressed = false;
+            placePlayers();
+
+            if (stage3IntroTimer <= 0) {
+                stage3IntroActive = false;
+            }
+
+            return;
+        }
+
         if (rageTimer > 0) {
             rageTimer = Math.max(0, rageTimer - dt);
         }
@@ -292,9 +394,13 @@ public class level5 extends level {
 
         if (bossHp <= 0) {
             bossHp = 0;
-            complete = true;
-            flyingEnemies.clear();
-            bossMissiles.clear();
+            startBossExplosion();
+            placePlayers();
+            return;
+        }
+
+        if (phase() == 3 && !stage3IntroStarted) {
+            startStage3Intro();
         }
 
         placePlayers();
@@ -377,9 +483,106 @@ public class level5 extends level {
             flyingEnemies.add(new FlyingEnemy(1650, 120 + Math.random() * 780));
         }
 
-        if (bossMissileTimer >= bossMissileInterval()) {
+        updateBossAttackAnimation(dt);
+
+        if (bossAttackAnimating) {
+            return;
+        }
+
+        double windupStartTime = Math.max(0, bossMissileInterval() - BOSS_ATTACK_MISSILE_DELAY);
+
+        if (bossMissileTimer >= windupStartTime) {
+            startBossMissileAnimation();
+        }
+    }
+
+    private void startBossMissileAnimation() {
+        bossAttackAnimating = true;
+        bossAttackAnimationTimer = 0;
+        bossAttackFrame = 0;
+        bossAttackMissileFired = false;
+    }
+
+    private void updateBossAttackAnimation(double dt) {
+        if (!bossAttackAnimating) {
+            bossAttackFrame = 0;
+            return;
+        }
+
+        bossAttackAnimationTimer += dt;
+        bossAttackFrame = Math.min(
+                BOSS_ATTACK_FRAME_COUNT - 1,
+                (int)(bossAttackAnimationTimer / BOSS_ATTACK_FRAME_TIME)
+        );
+
+        if (!bossAttackMissileFired && bossAttackFrame >= BOSS_ATTACK_MISSILE_FRAME) {
+            bossMissiles.add(new BossMissile(
+                    BOSS_MOUTH_X - 25,
+                    BOSS_MOUTH_Y - 25,
+                    phase()
+            ));
             bossMissileTimer = 0;
-            bossMissiles.add(new BossMissile(1650, BOSS_Y + 120, phase()));
+            bossAttackMissileFired = true;
+        }
+
+        if (bossAttackAnimationTimer >= BOSS_ATTACK_FRAME_TIME * BOSS_ATTACK_FRAME_COUNT) {
+            bossAttackAnimating = false;
+            bossAttackAnimationTimer = 0;
+            bossAttackFrame = 0;
+            bossAttackMissileFired = false;
+        }
+    }
+
+    private void startBossExplosion() {
+        if (bossExplosionActive) {
+            return;
+        }
+
+        bossExplosionActive = true;
+        bossExplosionTimer = BOSS_EXPLOSION_DURATION;
+        bossAttackAnimating = false;
+        bossAttackAnimationTimer = 0;
+        bossAttackFrame = 0;
+        bossAttackMissileFired = false;
+        knives.clear();
+        playerMissiles.clear();
+        cursedMissiles.clear();
+        flyingEnemies.clear();
+        bossMissiles.clear();
+        bossExplosionParticles.clear();
+        spawnBossExplosionParticles();
+    }
+
+    private void spawnBossExplosionParticles() {
+        double centerX = BOSS_DRAW_X + BOSS_DRAW_W / 2.0;
+        double centerY = BOSS_DRAW_Y + BOSS_DRAW_H / 2.0;
+
+        for (int i = 0; i < 90; i++) {
+            double angle = Math.random() * Math.PI * 2;
+            double speed = 80 + Math.random() * 380;
+            double offset = Math.random() * 55;
+            double x = centerX + Math.cos(angle) * offset;
+            double y = centerY + Math.sin(angle) * offset;
+            double vx = Math.cos(angle) * speed;
+            double vy = Math.sin(angle) * speed - 80;
+            double radius = 8 + Math.random() * 28;
+            double life = 0.65 + Math.random() * 1.05;
+            double delay = Math.random() * 1.6;
+            bossExplosionParticles.add(new BossExplosionParticle(x, y, vx, vy, radius, life, delay, i % 4));
+        }
+    }
+
+    private void updateBossExplosion(double dt) {
+        bossExplosionTimer = Math.max(0, bossExplosionTimer - dt);
+
+        for (BossExplosionParticle particle : bossExplosionParticles) {
+            particle.update(dt);
+        }
+
+        if (bossExplosionTimer <= 0) {
+            bossExplosionActive = false;
+            bossExplosionParticles.clear();
+            complete = true;
         }
     }
 
@@ -918,6 +1121,10 @@ public class level5 extends level {
     }
 
     public void setGreedyDirection(int col, int row) {
+        if (stage3IntroActive || bossExplosionActive) {
+            return;
+        }
+
         if (col == 0 && row == 0) {
             return;
         }
@@ -931,11 +1138,16 @@ public class level5 extends level {
     }
 
     public void setJetpackPressed(boolean pressed) {
+        if (stage3IntroActive || bossExplosionActive) {
+            return;
+        }
+
         jetpackPressed = pressed;
     }
 
     public void firePlayerMissile() {
-        if (missileInventory.isEmpty() || missileCooldownTimer > 0 || noFireTimer > 0 || gameOver || complete) {
+        if (missileInventory.isEmpty() || missileCooldownTimer > 0 || noFireTimer > 0 ||
+                stage3IntroActive || bossExplosionActive || gameOver || complete) {
             return;
         }
 
@@ -999,6 +1211,14 @@ public class level5 extends level {
         return phase == 1 ? 10.0 : phase == 2 ? 8.0 : 6.0;
     }
 
+    private void startStage3Intro() {
+        stage3IntroStarted = true;
+        stage3IntroActive = true;
+        stage3IntroTimer = STAGE3_INTRO_DURATION;
+        stage3SoundRequested = true;
+        jetpackPressed = false;
+    }
+
     private double enemySpeed() {
         int phase = phase();
         double speed = phase == 1 ? 180 : phase == 2 ? 220 : 260;
@@ -1028,6 +1248,44 @@ public class level5 extends level {
 
     boolean isBossFightGameOver() {
         return gameOver;
+    }
+
+    boolean isStage3IntroActive() {
+        return stage3IntroActive;
+    }
+
+    boolean isBossExplosionActive() {
+        return bossExplosionActive;
+    }
+
+    double getBossExplosionProgress() {
+        if (!bossExplosionActive) {
+            return 0;
+        }
+
+        return 1.0 - bossExplosionTimer / BOSS_EXPLOSION_DURATION;
+    }
+
+    double getStage3IntroTimer() {
+        return stage3IntroTimer;
+    }
+
+    boolean areControlsReversed() {
+        return stage3IntroStarted && !stage3IntroActive && !bossExplosionActive &&
+                phase() == 3 && !complete && !gameOver;
+    }
+
+    boolean consumeStage3SoundRequest() {
+        if (!stage3SoundRequested) {
+            return false;
+        }
+
+        stage3SoundRequested = false;
+        return true;
+    }
+
+    int getBossFrameIndex() {
+        return bossAttackAnimating ? bossAttackFrame : 0;
     }
 
     boolean hasLockedBossMissile() {
