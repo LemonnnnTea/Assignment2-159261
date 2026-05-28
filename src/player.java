@@ -113,7 +113,7 @@ public class player {
         }
 
 
-        // 超出地图死亡
+        // Die when leaving the map.
         if (y < -50) {
             die();
         }

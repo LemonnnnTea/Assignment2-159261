@@ -7,6 +7,7 @@ public class Game extends GameEngine{
     private static final int WINDOW_WIDTH = 1920;
     private static final int WINDOW_HEIGHT = 1080;
     private static final int LAST_IMPLEMENTED_LEVEL = 4;
+    private static final double MAX_PHYSICS_DT = 1.0 / 30.0;
 
     private static final double MENU_BUTTON_X = 1320;
     private static final double MENU_BUTTON_Y = 400;
@@ -603,8 +604,26 @@ public class Game extends GameEngine{
         drawText(186, 77, "Score  P1: " + playerScores[0] + "    P2: " + playerScores[1], "Arial", 22);
     }
 
+    private void drawLevel4Message() {
+        if (!(level instanceof level4)) {
+            return;
+        }
+
+        String message = ((level4)level).getTrollMessage();
+
+        if (message == null || message.isEmpty()) {
+            return;
+        }
+
+        fillRoundRect(690, 112, 540, 72, 8, new Color(12, 18, 28, 210));
+        drawRoundRect(690, 112, 540, 72, 8, 2, new Color(255, 190, 85));
+        drawCenteredText(690, 158, 540, message, "Dialog", 32, true, COLOR_ACCENT_2);
+    }
+
     @Override
     public void update(double dt) {
+        dt = Math.min(dt, MAX_PHYSICS_DT);
+
         if (currentLevel >= 1 && currentLevel <= 5 && !gameOver && !levelComplete && !gamePaused) {
             boolean player1WasDead = player[0].dead;
             boolean player2WasDead = player[1].dead;
@@ -647,7 +666,7 @@ public class Game extends GameEngine{
     }
 
     private int getReachedGatePlayer() {
-        if (currentLevel == 3 || currentLevel == 4) {
+        if (currentLevel == 3) {
             if (player[0].reachedGate && player[1].reachedGate) {
                 return 1;
             }
@@ -669,7 +688,7 @@ public class Game extends GameEngine{
     private void completeLevel(int playerNumber) {
         winningPlayer = playerNumber;
 
-        if (currentLevel == 3 || currentLevel == 4) {
+        if (currentLevel == 3) {
             winningPlayer = 0;
             playerScores[0]++;
             playerScores[1]++;
@@ -787,6 +806,7 @@ public class Game extends GameEngine{
             }
 
             drawInGameHud();
+            drawLevel4Message();
 
             if (gamePaused) {
                 drawScrim();
@@ -935,7 +955,7 @@ public class Game extends GameEngine{
         levelButtons[0] = new LevelButton(1, 260, 720, buttonWidth, buttonHeight, "Level 1: Skybridge Run", true);
         levelButtons[1] = new LevelButton(2, 620, 560, buttonWidth, buttonHeight, "Level 2: Trap Corridor", true);
         levelButtons[2] = new LevelButton(3, 980, 700, buttonWidth, buttonHeight, "Level 3: Windmill Valley", true);
-        levelButtons[3] = new LevelButton(4, 1320, 500, buttonWidth, buttonHeight, "Level 4: Cloud Farm Tower", true);
+        levelButtons[3] = new LevelButton(4, 1320, 500, buttonWidth, buttonHeight, "Level 4: Piggy Rage Tower", true);
         levelButtons[4] = new LevelButton(5, 1500, 760, buttonWidth, buttonHeight, "Level 5: Boss Fight", false);
     }
 

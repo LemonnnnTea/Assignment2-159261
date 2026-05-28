@@ -10,7 +10,7 @@ public class Spike extends Trap {
 
     @Override
     public void update(double dt, player p1, player p2) {
-        // 地刺不动
+        // Spikes do not move.
     }
 
     @Override

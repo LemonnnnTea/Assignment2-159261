@@ -5,31 +5,51 @@ import java.util.List;
 
 public class BreakawayPitPlatform extends Platform {
     private static final double TRIGGER_TOLERANCE = 12;
-    private static final double RESET_DELAY = 1.0;
+    private static final double DEFAULT_FALL_DELAY = 0.0;
+    private static final double DEFAULT_RESET_DELAY = 1.0;
 
+    private final double fallDelay;
+    private final double resetDelay;
+    private boolean triggered = false;
     private boolean disappeared = false;
-    private double resetTimer = 0;
+    private double timer = 0;
 
     public BreakawayPitPlatform(double x, double y, Image image) {
+        this(x, y, image, DEFAULT_FALL_DELAY, DEFAULT_RESET_DELAY);
+    }
+
+    public BreakawayPitPlatform(double x, double y, Image image, double fallDelay, double resetDelay) {
         super(x, y, TILE_SIZE, TILE_SIZE, image);
+        this.fallDelay = fallDelay;
+        this.resetDelay = resetDelay;
     }
 
     @Override
     public void update(double dt, player p1, player p2) {
         if (disappeared) {
-            resetTimer += dt;
+            timer += dt;
 
-            if (resetTimer >= RESET_DELAY) {
+            if (timer >= resetDelay) {
+                triggered = false;
                 disappeared = false;
-                resetTimer = 0;
+                timer = 0;
             }
 
             return;
         }
 
-        if (isTriggeredBy(p1) || isTriggeredBy(p2)) {
-            disappeared = true;
-            resetTimer = 0;
+        if (!triggered && (isTriggeredBy(p1) || isTriggeredBy(p2))) {
+            triggered = true;
+            timer = 0;
+        }
+
+        if (triggered) {
+            timer += dt;
+
+            if (timer >= fallDelay) {
+                disappeared = true;
+                timer = 0;
+            }
         }
     }
 

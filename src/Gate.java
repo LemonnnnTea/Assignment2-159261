@@ -98,7 +98,7 @@ public class Gate {
 
     public void playerReach(int playerNumber) {
 
-        // 防止重复进入
+        // Prevent duplicate entry.
         if (playerNumber == 1 && player1Reached) {
             return;
         }
@@ -107,7 +107,7 @@ public class Gate {
             return;
         }
 
-        // 标记进入
+        // Mark the player as entered.
         if (playerNumber == 1) {
             player1Reached = true;
         }

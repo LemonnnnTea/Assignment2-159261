@@ -11,10 +11,13 @@ public class FlyingKnife extends Trap {
     double triggerDistance;
     double maxFlyDistance;
     double triggerX, triggerY, triggerWidth, triggerHeight;
+    double cooldown = 0;
+    double cooldownTimer = 0;
 
     boolean triggered = false;
     boolean triggerByArea = false;
     boolean visibleBeforeTriggered = true;
+    boolean resetAfterFlight = false;
 
     public FlyingKnife(double x, double y, double width, double height,
                        double directionX, double directionY,
@@ -56,6 +59,21 @@ public class FlyingKnife extends Trap {
         this.visibleBeforeTriggered = false;
     }
 
+    public FlyingKnife(double x, double y, double width, double height,
+                       double directionX, double directionY,
+                       double speed,
+                       double triggerX, double triggerY, double triggerWidth, double triggerHeight,
+                       double maxFlyDistance,
+                       double cooldown,
+                       Image image) {
+
+        this(x, y, width, height, directionX, directionY, speed,
+                triggerX, triggerY, triggerWidth, triggerHeight, maxFlyDistance, image);
+
+        this.cooldown = cooldown;
+        this.resetAfterFlight = true;
+    }
+
     @Override
     public void update(double dt, player p1, player p2) {
 
@@ -64,8 +82,15 @@ public class FlyingKnife extends Trap {
         }
 
         if (!triggered) {
+            if (cooldownTimer > 0) {
+                cooldownTimer -= dt;
+                return;
+            }
+
             if (isTriggeredBy(p1) || isTriggeredBy(p2)) {
                 triggered = true;
+                x = startX;
+                y = startY;
             }
         }
 
@@ -76,6 +101,14 @@ public class FlyingKnife extends Trap {
             double flyDistance = CollisionManager.distance(startX, startY, x, y);
 
             if (flyDistance >= maxFlyDistance) {
+                if (resetAfterFlight) {
+                    triggered = false;
+                    cooldownTimer = cooldown;
+                    x = startX;
+                    y = startY;
+                    return;
+                }
+
                 active = false;
             }
         }
