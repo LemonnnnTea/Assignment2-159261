@@ -393,6 +393,14 @@ public abstract class level {
         return gate != null && gate.isCompleted();
     }
 
+    public int getWinningPlayer() {
+        if (gate != null) {
+            return gate.getFirstPlayerReached();
+        }
+
+        return 0;
+    }
+
     public boolean didTeleport() {
         return playerTeleportedThisFrame;
     }

@@ -37,6 +37,11 @@ public class level4 extends level {
         return raceWinner != 0;
     }
 
+    @Override
+    public int getWinningPlayer() {
+        return raceWinner;
+    }
+
     public String getTrollMessage() {
         if (fakeDoor1 == null) {
             return "";

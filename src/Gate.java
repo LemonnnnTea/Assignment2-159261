@@ -9,6 +9,7 @@ public class Gate {
 
     boolean player1Reached = false;
     boolean player2Reached = false;
+    int firstPlayerReached = 0;
 
     boolean completed = false;
 
@@ -107,6 +108,10 @@ public class Gate {
             return;
         }
 
+        if (firstPlayerReached == 0) {
+            firstPlayerReached = playerNumber;
+        }
+
         // Mark the player as entered.
         if (playerNumber == 1) {
             player1Reached = true;
@@ -143,6 +148,11 @@ public class Gate {
         return false;
     }
 
+    public int getFirstPlayerReached() {
+
+        return firstPlayerReached;
+    }
+
     public boolean isCompleted() {
 
         return completed;
@@ -157,6 +167,7 @@ public class Gate {
 
         player1Reached = false;
         player2Reached = false;
+        firstPlayerReached = 0;
 
         completed = false;
 

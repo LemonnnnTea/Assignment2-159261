@@ -11,6 +11,7 @@ public class Game extends GameEngine{
     private static final int WINDOW_HEIGHT = 1080;
     private static final int LAST_IMPLEMENTED_LEVEL = 5;
     private static final double MAX_PHYSICS_DT = 1.0 / 30.0;
+    private static final int GATE_WIN_SCORE = 10;
 
     private static final double MENU_BUTTON_X = 1320;
     private static final double MENU_BUTTON_Y = 400;
@@ -114,22 +115,23 @@ public class Game extends GameEngine{
         int levelNumber;
         double x, y, width, height;
         String levelName;
+        String levelDescription;
         boolean unlocked;
 
-        LevelButton(int level, double x, double y, double w, double h, String name, boolean unlocked) {
+        LevelButton(int level, double x, double y, double w, double h, String name, String description, boolean unlocked) {
             this.levelNumber = level;
             this.x = x;
             this.y = y;
             this.width = w;
             this.height = h;
             this.levelName = name;
+            this.levelDescription = description;
             this.unlocked = unlocked;
         }
     }
 
     LevelButton[] levelButtons;
     int hoveredLevelButton = -1;
-    String levelDescription = "";
 
     Image platformImage;
     Image spikeImage;
@@ -219,22 +221,71 @@ public class Game extends GameEngine{
 
     private void drawCenteredText(double x, double y, double w, String text, String font, int size, boolean bold, Color color) {
         changeColor(color);
-        double textWidth = text.length() * size * 0.55;
+        int fittedSize = size;
+        int style = bold ? Font.BOLD : Font.PLAIN;
+        Font drawFont = new Font(font, style, fittedSize);
+        mGraphics.setFont(drawFont);
+        FontMetrics metrics = mGraphics.getFontMetrics();
+
+        while (fittedSize > 14 && metrics.stringWidth(text) > w - 24) {
+            fittedSize--;
+            drawFont = new Font(font, style, fittedSize);
+            mGraphics.setFont(drawFont);
+            metrics = mGraphics.getFontMetrics();
+        }
+
+        double textWidth = metrics.stringWidth(text);
         double textX = x + (w - textWidth) / 2;
 
-        if (bold) {
-            drawBoldText(textX, y, text, font, size);
-        } else {
-            drawText(textX, y, text, font, size);
-        }
+        mGraphics.drawString(text, (int)textX, (int)y);
     }
 
     private void drawButtonLabel(double x, double y, double w, double h, String text, int size, Color color) {
         changeColor(color);
-        double textWidth = text.length() * size * 0.58;
+        int fittedSize = size;
+        Font drawFont = new Font("Arial", Font.BOLD, fittedSize);
+        mGraphics.setFont(drawFont);
+        FontMetrics metrics = mGraphics.getFontMetrics();
+
+        while (fittedSize > 12 && metrics.stringWidth(text) > w - 18) {
+            fittedSize--;
+            drawFont = new Font("Arial", Font.BOLD, fittedSize);
+            mGraphics.setFont(drawFont);
+            metrics = mGraphics.getFontMetrics();
+        }
+
+        double textWidth = metrics.stringWidth(text);
         double textX = x + (w - textWidth) / 2;
-        double textY = y + (h + size * 0.7) / 2;
-        drawBoldText(textX, textY, text, "Arial", size);
+        double textY = y + (h - metrics.getHeight()) / 2 + metrics.getAscent();
+        mGraphics.drawString(text, (int)textX, (int)textY);
+    }
+
+    private void drawWrappedText(double x, double y, double w, String text, String font, int size, Color color) {
+        changeColor(color);
+        Font drawFont = new Font(font, Font.PLAIN, size);
+        mGraphics.setFont(drawFont);
+        FontMetrics metrics = mGraphics.getFontMetrics();
+
+        String[] words = text.split(" ");
+        String line = "";
+        double lineY = y;
+        double lineHeight = metrics.getHeight() + 4;
+
+        for (String word : words) {
+            String candidate = line.isEmpty() ? word : line + " " + word;
+
+            if (!line.isEmpty() && metrics.stringWidth(candidate) > w) {
+                mGraphics.drawString(line, (int)x, (int)lineY);
+                line = word;
+                lineY += lineHeight;
+            } else {
+                line = candidate;
+            }
+        }
+
+        if (!line.isEmpty()) {
+            mGraphics.drawString(line, (int)x, (int)lineY);
+        }
     }
 
     private void drawPanel(double x, double y, double w, double h) {
@@ -369,7 +420,7 @@ public class Game extends GameEngine{
 
         changeColor(COLOR_MUTED_TEXT);
         drawText(610, 430, "This is a two-player platform game.", "Arial", 26);
-        drawText(610, 480, "The first pig to enter the gate wins the level.", "Arial", 26);
+        drawText(610, 480, "The first pig to enter the true gate scores 10.", "Arial", 26);
         drawText(610, 530, "Use portals and timing to race past hazards.", "Arial", 26);
         drawText(610, 580, "Player 1 uses W A D. Player 2 uses arrow keys.", "Arial", 26);
 
@@ -640,20 +691,54 @@ public class Game extends GameEngine{
             drawButtonLabel(button.x, button.y, button.width, button.height, buttonText, 24, COLOR_TEXT);
         }
 
-        drawPanel(560, 310, 800, 150);
+        drawLevelInfoPanel();
+    }
+
+    private void drawLevelInfoPanel() {
+        double panelX = 500;
+        double panelY = 290;
+        double panelW = 920;
+        double panelH = 190;
+        double contentX = panelX + 46;
+        double contentW = panelW - 92;
+
+        drawPanel(panelX, panelY, panelW, panelH);
 
         if (hoveredLevelButton >= 0 && hoveredLevelButton < levelButtons.length) {
             LevelButton button = levelButtons[hoveredLevelButton];
+            Color accent = button.unlocked ? COLOR_ACCENT : COLOR_LOCKED;
 
-            changeColor(COLOR_TEXT);
+            changeColor(accent);
+            drawSolidRectangle(panelX, panelY, 8, panelH);
             drawSolidRectangle(button.x + button.width / 2 - 8, button.y - 30, 16, 16);
 
-            drawCenteredText(560, 365, 800, button.levelName, "Arial", 30, true, COLOR_TEXT);
-            String stateText = button.unlocked ? "Ready to play" : "Complete the previous level to unlock";
-            drawCenteredText(560, 410, 800, stateText, "Arial", 20, false, COLOR_MUTED_TEXT);
+            changeColor(COLOR_TEXT);
+            drawBoldText(contentX, panelY + 58, button.levelName, "Arial", 30);
+
+            fillRoundRect(panelX + panelW - 160, panelY + 30, 110, 38, 8, button.unlocked ? COLOR_GOOD : COLOR_LOCKED);
+            drawButtonLabel(panelX + panelW - 160, panelY + 30, 110, 38, button.unlocked ? "READY" : "LOCKED", 17, COLOR_TEXT);
+
+            String description = button.unlocked ? button.levelDescription : "Complete the previous level to unlock this stage.";
+            drawWrappedText(contentX, panelY + 104, contentW, description, "Arial", 22, COLOR_MUTED_TEXT);
+
+            if (button.levelNumber < LAST_IMPLEMENTED_LEVEL) {
+                drawCenteredText(panelX + panelW - 220, panelY + 155, 170, "+10 true gate", "Arial", 18, true, COLOR_ACCENT_2);
+            }
         } else {
-            drawCenteredText(560, 365, 800, "Choose a stage", "Arial", 30, true, COLOR_TEXT);
-            drawCenteredText(560, 410, 800, "Level 1 has been rebuilt for the 1920 x 1080 map.", "Arial", 20, false, COLOR_MUTED_TEXT);
+            changeColor(COLOR_ACCENT);
+            drawSolidRectangle(panelX, panelY, 8, panelH);
+
+            changeColor(COLOR_TEXT);
+            drawBoldText(contentX, panelY + 64, "Choose a stage", "Arial", 34);
+            drawWrappedText(
+                    contentX,
+                    panelY + 112,
+                    contentW,
+                    "Move the cursor over a level to preview its route, hazards, and scoring target.",
+                    "Arial",
+                    22,
+                    COLOR_MUTED_TEXT
+            );
         }
     }
 
@@ -755,8 +840,8 @@ public class Game extends GameEngine{
                 }
             }
 
-            int reachedPlayer = getReachedGatePlayer();
-            if (reachedPlayer != 0 && level.isLevelComplete()) {
+            int reachedPlayer = getWinningPlayer();
+            if (level.isLevelComplete() && reachedPlayer != 0) {
                 completeLevel(reachedPlayer);
             }
         }
@@ -769,16 +854,17 @@ public class Game extends GameEngine{
 
         if (showAllLevelsComplete) {
             allLevelsCompleteTimer += dt;
-            if (allLevelsCompleteTimer >= 3.0) {
-                showAllLevelsComplete = false;
-                levelComplete = false;
-                currentLevel = -1;
-                showLevelSelect = true;
-            }
         }
     }
 
-    private int getReachedGatePlayer() {
+    private int getWinningPlayer() {
+        if (level != null) {
+            int winningPlayer = level.getWinningPlayer();
+            if (winningPlayer != 0) {
+                return winningPlayer;
+            }
+        }
+
         if (player[0].reachedGate) {
             return 1;
         }
@@ -794,11 +880,9 @@ public class Game extends GameEngine{
         winningPlayer = playerNumber;
 
         if (currentLevel == 5) {
-            winningPlayer = 0;
-            playerScores[0]++;
-            playerScores[1]++;
+            winningPlayer = getFinalWinner();
         } else {
-            playerScores[playerNumber - 1]++;
+            playerScores[playerNumber - 1] += GATE_WIN_SCORE;
         }
 
         levelComplete = true;
@@ -885,7 +969,42 @@ public class Game extends GameEngine{
             return "Co-op clear    " + deaths;
         }
 
-        return "Winner: P" + winningPlayer + "    " + deaths;
+        return "Winner: P" + winningPlayer + "  +" + GATE_WIN_SCORE + "    " + deaths;
+    }
+
+    private int getFinalWinner() {
+        if (playerScores[0] == playerScores[1]) {
+            return 0;
+        }
+
+        return playerScores[0] > playerScores[1] ? 1 : 2;
+    }
+
+    private String finalWinnerText() {
+        int finalWinner = getFinalWinner();
+
+        if (finalWinner == 0) {
+            return "Final Result: Draw";
+        }
+
+        return "Final Winner: P" + finalWinner;
+    }
+
+    private String finalReasonText() {
+        int finalWinner = getFinalWinner();
+
+        if (finalWinner == 0) {
+            return "Both players finished with the same score.";
+        }
+
+        return "P" + finalWinner + " has the higher score.";
+    }
+
+    private void returnToLevelSelect() {
+        showAllLevelsComplete = false;
+        levelComplete = false;
+        currentLevel = -1;
+        showLevelSelect = true;
     }
 
     private void playSound(AudioClip sound) {
@@ -1334,6 +1453,25 @@ public class Game extends GameEngine{
         drawSolidCircle(flameX - dirX * 10, flameY - dirY * 10, 5);
     }
 
+    private void drawFinalSettlementScreen() {
+        drawCenteredText(520, 310, 880, "FINAL RESULT", "Arial", 58, true, new Color(255, 215, 0));
+        drawCenteredText(520, 385, 880, finalWinnerText(), "Arial", 40, true, COLOR_TEXT);
+        drawCenteredText(520, 440, 880, finalReasonText(), "Arial", 26, false, COLOR_MUTED_TEXT);
+
+        fillRoundRect(650, 500, 280, 120, 8, new Color(24, 32, 48));
+        drawRoundRect(650, 500, 280, 120, 8, 2, new Color(105, 126, 160));
+        fillRoundRect(990, 500, 280, 120, 8, new Color(24, 32, 48));
+        drawRoundRect(990, 500, 280, 120, 8, 2, new Color(105, 126, 160));
+
+        drawCenteredText(650, 545, 280, "P1", "Arial", 28, true, COLOR_TEXT);
+        drawCenteredText(650, 595, 280, String.valueOf(playerScores[0]), "Arial", 40, true, COLOR_ACCENT);
+        drawCenteredText(990, 545, 280, "P2", "Arial", 28, true, COLOR_TEXT);
+        drawCenteredText(990, 595, 280, String.valueOf(playerScores[1]), "Arial", 40, true, COLOR_ACCENT_2);
+
+        drawCenteredText(520, 690, 880, "Boss cleared. Higher score wins.", "Arial", 26, false, COLOR_TEXT);
+        drawCenteredText(520, 750, 880, "SPACE: level select    R: replay boss    ESC: level select", "Arial", 24, false, COLOR_TEXT);
+    }
+
     @Override
     public void paintComponent() {
         if (currentLevel == 0) {
@@ -1358,7 +1496,7 @@ public class Game extends GameEngine{
             drawText(360, 525, "W  A  D", "Arial", 26);
             drawText(210, 575, "Player 2", "Arial", 24);
             drawText(360, 575, "Arrow keys", "Arial", 26);
-            drawText(210, 635, "First pig into the gate scores.", "Arial", 24);
+            drawText(210, 635, "First pig into the true gate scores 10.", "Arial", 24);
 
             drawSelectedCharacters(210, 705);
 
@@ -1448,16 +1586,7 @@ public class Game extends GameEngine{
                 drawPanel(520, 190, 880, 700);
 
                 if (showAllLevelsComplete) {
-                    drawCenteredText(520, 340, 880, "Congratulations!", "Arial", 58, true, new Color(255, 215, 0));
-                    drawCenteredText(520, 425, 880, "You have completed all the levels.", "Arial", 30, false, COLOR_TEXT);
-                    drawCenteredText(520, 485, 880, completionSummaryText(), "Arial", 24, false, COLOR_TEXT);
-                    drawCenteredText(520, 530, 880, "Score  P1: " + playerScores[0] + "    P2: " + playerScores[1], "Arial", 24, false, COLOR_TEXT);
-
-                    int countdown = 3 - (int)allLevelsCompleteTimer;
-                    if (countdown < 0) countdown = 0;
-
-                    String countdownText = "Returning to level select... " + countdown;
-                    drawCenteredText(520, 610, 880, countdownText, "Arial", 24, false, COLOR_MUTED_TEXT);
+                    drawFinalSettlementScreen();
                 } else {
                     if (victoryImage != null) {
                         double imageWidth = 520;
@@ -1573,11 +1702,56 @@ public class Game extends GameEngine{
         double buttonWidth = 170;
         double buttonHeight = 86;
 
-        levelButtons[0] = new LevelButton(1, 260, 720, buttonWidth, buttonHeight, "Level 1: Skybridge Run", true);
-        levelButtons[1] = new LevelButton(2, 620, 560, buttonWidth, buttonHeight, "Level 2: Trap Corridor", true);
-        levelButtons[2] = new LevelButton(3, 980, 700, buttonWidth, buttonHeight, "Level 3: Windmill Valley", true);
-        levelButtons[3] = new LevelButton(4, 1320, 500, buttonWidth, buttonHeight, "Level 4: Piggy Rage Tower", true);
-        levelButtons[4] = new LevelButton(5, 1500, 760, buttonWidth, buttonHeight, "Level 5: Boss Fight", true);
+        levelButtons[0] = new LevelButton(
+                1,
+                260,
+                720,
+                buttonWidth,
+                buttonHeight,
+                "Level 1: Wind Gate Sprint",
+                "Avoid the fake gate, ride the wind vent, use portals, and sprint to the far-right true gate.",
+                true
+        );
+        levelButtons[1] = new LevelButton(
+                2,
+                620,
+                560,
+                buttonWidth,
+                buttonHeight,
+                "Level 2: Breakaway Corridor",
+                "Choose a route over collapsing floor blocks while flying knives, spikes, and saws block the exit.",
+                true
+        );
+        levelButtons[2] = new LevelButton(
+                3,
+                980,
+                700,
+                buttonWidth,
+                buttonHeight,
+                "Level 3: Upper Route Gauntlet",
+                "Climb through dense spikes and moving saws, use portal shortcuts, and ignore the far-right fake gate.",
+                true
+        );
+        levelButtons[3] = new LevelButton(
+                4,
+                1320,
+                500,
+                buttonWidth,
+                buttonHeight,
+                "Level 4: Fake Door Tower",
+                "Start apart, climb through return doors and hidden spikes, then touch the top-center true gate first.",
+                true
+        );
+        levelButtons[4] = new LevelButton(
+                5,
+                1500,
+                760,
+                buttonWidth,
+                buttonHeight,
+                "Level 5: Split-Screen Boss",
+                "P1 collects supplies on the grid while P2 dodges missiles and fires weapons at the boss.",
+                true
+        );
     }
 
     private void restartLevel() {
@@ -1851,6 +2025,19 @@ public class Game extends GameEngine{
                 return;
             }
             if (levelComplete) {
+                if (showAllLevelsComplete) {
+                    if (event.getKeyCode() == KeyEvent.VK_SPACE ||
+                            event.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                        returnToLevelSelect();
+                    }
+
+                    if (event.getKeyCode() == KeyEvent.VK_R) {
+                        restartLevel();
+                    }
+
+                    return;
+                }
+
                 if (event.getKeyCode() == KeyEvent.VK_SPACE) {
                     nextLevel();
                 }
@@ -1858,9 +2045,7 @@ public class Game extends GameEngine{
                     restartLevel();
                 }
                 if (event.getKeyCode() == KeyEvent.VK_ESCAPE) {
-                    levelComplete = false;
-                    currentLevel = -1;
-                    showLevelSelect = true;
+                    returnToLevelSelect();
                 }
                 return;
             }

@@ -81,7 +81,6 @@ public class level1 extends level {
         traps.add(new Spike(1200, 600, BLOCK_SIZE, BLOCK_SIZE, spikeImage));
         traps.add(new Spike(1500, 810, BLOCK_SIZE, BLOCK_SIZE, spikeImage));
         traps.add(new Spike(1650, 880, BLOCK_SIZE, BLOCK_SIZE, spikeImage));
-        traps.add(new Spike(1750, 880, BLOCK_SIZE, BLOCK_SIZE, spikeImage));
 
         traps.add(new FlyingKnife(
                 -50, 850,
