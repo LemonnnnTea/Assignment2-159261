@@ -3,6 +3,7 @@ import java.awt.*;
 public class player {
     private static final int WORLD_WIDTH = 1920;
     private static final int WORLD_HEIGHT = 1080;
+    public static final double DEFAULT_SPEED = 250;
     public static final double DEFAULT_JUMP_POWER = 550;
 
     double x, y;
@@ -18,9 +19,10 @@ public class player {
 
     double velocityX, velocityY;
 
-    double speed = 250;
+    double speed = DEFAULT_SPEED;
     double jumpPower = DEFAULT_JUMP_POWER;
     double gravity = 1200;
+    private int powerLevel = 1;
 
     boolean leftPressed = false;
     boolean rightPressed = false;
@@ -46,6 +48,23 @@ public class player {
         this.jump = jump;
         currentFrame = 0;
         animationTimer = 0;
+    }
+
+    public void setPowerLevel(int level) {
+        if (level < 1) {
+            level = 1;
+        }
+
+        if (level > 5) {
+            level = 5;
+        }
+
+        powerLevel = level;
+        speed = DEFAULT_SPEED * (1.0 + (powerLevel - 1) * 0.01);
+    }
+
+    public int getPowerLevel() {
+        return powerLevel;
     }
 
     public player() {

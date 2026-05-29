@@ -16,6 +16,7 @@ public abstract class level {
     ArrayList<PortalParticle> portalParticles = new ArrayList<>();
     ArrayList<WindVent> windVents = new ArrayList<>();
     ArrayList<Enemy> enemies = new ArrayList<>();
+    ArrayList<PlayerKnife> playerKnives = new ArrayList<>();
     ArrayList<SurfaceSegment> enemyPlatformSegments = new ArrayList<>();
     Gate gate;
     private boolean playerTeleportedThisFrame;
@@ -86,6 +87,8 @@ public abstract class level {
         boolean player2Teleported = isPlayerActive(player2) && handlePortals(player2);
 
         updateEnemies(dt);
+
+        updatePlayerKnives(dt);
 
         if (isPlayerActive(player1)) {
             handlePlatformCollision(player1);
@@ -252,6 +255,44 @@ public abstract class level {
         }
     }
 
+    private void updatePlayerKnives(double dt) {
+        for (int i = playerKnives.size() - 1; i >= 0; i--) {
+            PlayerKnife knife = playerKnives.get(i);
+            knife.update(dt);
+
+            if (knife.isOutsideWorld()) {
+                playerKnives.remove(i);
+                continue;
+            }
+
+            if (hitEnemyWithKnife(knife)) {
+                playerKnives.remove(i);
+            }
+        }
+    }
+
+    private boolean hitEnemyWithKnife(PlayerKnife knife) {
+        for (Enemy enemy : enemies) {
+            if (!enemy.canCollide()) {
+                continue;
+            }
+
+            if (!CollisionManager.rectCollision(
+                    knife.x, knife.y, knife.width, knife.height,
+                    enemy.x, enemy.y, enemy.width, enemy.height
+            )) {
+                continue;
+            }
+
+            if (enemy.killByProjectile()) {
+                markEnemyKilledByPlayer(knife.ownerPlayerNumber);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private void handleEnemyCollision(Enemy enemy, player p, int playerNumber) {
         if (!enemy.canCollide() || !isPlayerActive(p)) {
             return;
@@ -266,14 +307,18 @@ public abstract class level {
                 player2EatenThisFrame = true;
             }
         } else if (result == Enemy.ContactResult.ENEMY_KILLED) {
-            enemyDiedThisFrame = true;
-            enemiesKilledThisFrame++;
+            markEnemyKilledByPlayer(playerNumber);
+        }
+    }
 
-            if (playerNumber == 1) {
-                player1EnemyKillsThisFrame++;
-            } else {
-                player2EnemyKillsThisFrame++;
-            }
+    private void markEnemyKilledByPlayer(int playerNumber) {
+        enemyDiedThisFrame = true;
+        enemiesKilledThisFrame++;
+
+        if (playerNumber == 1) {
+            player1EnemyKillsThisFrame++;
+        } else if (playerNumber == 2) {
+            player2EnemyKillsThisFrame++;
         }
     }
 
@@ -433,6 +478,41 @@ public abstract class level {
         return enemies;
     }
 
+    public ArrayList<PlayerKnife> getPlayerKnives() {
+        return playerKnives;
+    }
+
+    public boolean firePlayerKnife(int playerNumber, Image knifeImage, int playerLevel) {
+        if (playerLevel <= 1 || knifeImage == null) {
+            return false;
+        }
+
+        player shooter = playerNumber == 1 ? player1 : player2;
+        if (!isPlayerActive(shooter)) {
+            return false;
+        }
+
+        int maxKnives = Math.min(4, playerLevel - 1);
+        if (getActivePlayerKnifeCount(playerNumber) >= maxKnives) {
+            return false;
+        }
+
+        playerKnives.add(new PlayerKnife(shooter, playerNumber, knifeImage));
+        return true;
+    }
+
+    public int getActivePlayerKnifeCount(int playerNumber) {
+        int count = 0;
+
+        for (PlayerKnife knife : playerKnives) {
+            if (knife.ownerPlayerNumber == playerNumber) {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
     public boolean wasPlayerEaten(int playerNumber) {
         if (playerNumber == 1) {
             return player1EatenThisFrame;
@@ -484,6 +564,7 @@ public abstract class level {
         portalParticles.clear();
         windVents.clear();
         enemies.clear();
+        playerKnives.clear();
         enemyPlatformSegments.clear();
     }
 

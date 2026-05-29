@@ -215,6 +215,18 @@ public class Enemy {
         return ContactResult.PLAYER_EATEN;
     }
 
+    public boolean killByProjectile() {
+        if (!alive) {
+            return false;
+        }
+
+        alive = false;
+        fallingAfterDeath = true;
+        deathVelocityY = 0;
+        moving = false;
+        return true;
+    }
+
     private boolean isStompedBy(player p) {
         double previousBottom = p.previousY + p.height;
         double currentBottom = p.y + p.height;

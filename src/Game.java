@@ -12,6 +12,9 @@ public class Game extends GameEngine{
     private static final int LAST_IMPLEMENTED_LEVEL = 5;
     private static final double MAX_PHYSICS_DT = 1.0 / 30.0;
     private static final int GATE_WIN_SCORE = 10;
+    private static final int MIN_POWER_LEVEL = 1;
+    private static final int MAX_POWER_LEVEL = 5;
+    private static final float BGM_VOLUME_OFFSET = -6.0206f;
 
     private static final double MENU_BUTTON_X = 1320;
     private static final double MENU_BUTTON_Y = 400;
@@ -108,6 +111,7 @@ public class Game extends GameEngine{
 
     int maxUnlockedLevel = LAST_IMPLEMENTED_LEVEL;
     int[] playerScores = new int[2];
+    int[] playerPowerLevels = {MIN_POWER_LEVEL, MIN_POWER_LEVEL};
     int[] levelDeaths = new int[2];
     int winningPlayer = 0;
 
@@ -198,6 +202,10 @@ public class Game extends GameEngine{
             if (enemy.isActive()) {
                 drawEnemy(enemy);
             }
+        }
+
+        for (PlayerKnife knife : Level.getPlayerKnives()) {
+            drawPlayerKnife(knife);
         }
     }
 
@@ -413,19 +421,23 @@ public class Game extends GameEngine{
 
     private void drawHelpPanel(String closeText) {
         drawScrim();
-        drawPanel(520, 270, 880, 500);
+        drawPanel(520, 230, 880, 620);
 
         changeColor(COLOR_TEXT);
-        drawBoldText(610, 360, "HELP", "Arial", 48);
+        drawBoldText(610, 320, "HELP", "Arial", 48);
 
         changeColor(COLOR_MUTED_TEXT);
-        drawText(610, 430, "This is a two-player platform game.", "Arial", 26);
-        drawText(610, 480, "The first pig to enter the true gate scores 10.", "Arial", 26);
-        drawText(610, 530, "Use portals and timing to race past hazards.", "Arial", 26);
-        drawText(610, 580, "Player 1 uses W A D. Player 2 uses arrow keys.", "Arial", 26);
+        drawText(610, 390, "This is a two-player platform game.", "Arial", 24);
+        drawText(610, 435, "The first pig to enter the true gate scores 10.", "Arial", 24);
+        drawText(610, 480, "Use portals and timing to race past hazards.", "Arial", 24);
+        drawText(610, 525, "Player 1 uses W A D and throws knives with F.", "Arial", 24);
+        drawText(610, 570, "Player 2 uses arrow keys and throws knives with Enter.", "Arial", 24);
+        drawText(610, 615, "In levels 1-4, each winner gains +1 Level, up to Level 5.", "Arial", 24);
+        drawText(610, 660, "Each Level grants +1% speed and one more knife slot.", "Arial", 24);
+        drawText(610, 705, "Knives defeat enemies, then return when used or off-screen.", "Arial", 24);
 
         changeColor(COLOR_ACCENT_2);
-        drawText(610, 680, closeText, "Arial", 24);
+        drawText(610, 790, closeText, "Arial", 24);
     }
 
     private void drawSettingsPanel() {
@@ -529,6 +541,14 @@ public class Game extends GameEngine{
     }
 
     private void drawFlyingKnife(FlyingKnife knife) {
+        saveCurrentTransform();
+        translate(knife.x + knife.width / 2, knife.y + knife.height / 2);
+        rotate(knife.getDirectionAngleDegrees());
+        drawImage(knife.image, -knife.width / 2, -knife.height / 2, knife.width, knife.height);
+        restoreLastTransform();
+    }
+
+    private void drawPlayerKnife(PlayerKnife knife) {
         saveCurrentTransform();
         translate(knife.x + knife.width / 2, knife.y + knife.height / 2);
         rotate(knife.getDirectionAngleDegrees());
@@ -751,6 +771,39 @@ public class Game extends GameEngine{
 
         changeColor(COLOR_MUTED_TEXT);
         drawText(186, 77, "Score  P1: " + playerScores[0] + "    P2: " + playerScores[1], "Arial", 22);
+
+        if (currentLevel >= 1 && currentLevel <= 4) {
+            drawPowerLevelHud();
+        }
+    }
+
+    private void drawPowerLevelHud() {
+        double panelW = 560;
+        double panelH = 70;
+        double panelX = width() - panelW - 36;
+        double panelY = 32;
+
+        fillRoundRect(panelX, panelY, panelW, panelH, 8, new Color(12, 18, 28, 190));
+        drawRoundRect(panelX, panelY, panelW, panelH, 8, 2, new Color(105, 126, 160));
+
+        drawPowerHudPlayer(panelX + 24, panelY + 45, 1, COLOR_ACCENT);
+        drawPowerHudPlayer(panelX + 292, panelY + 45, 2, COLOR_ACCENT_2);
+    }
+
+    private void drawPowerHudPlayer(double x, double y, int playerNumber, Color color) {
+        int playerIndex = playerNumber - 1;
+        int powerLevel = playerPowerLevels[playerIndex];
+        int maxKnives = getMaxKnivesForPowerLevel(powerLevel);
+        int activeKnives = 0;
+
+        if (level != null) {
+            activeKnives = level.getActivePlayerKnifeCount(playerNumber);
+        }
+
+        changeColor(color);
+        drawBoldText(x, y, "P" + playerNumber + " Level " + powerLevel, "Arial", 22);
+        changeColor(COLOR_MUTED_TEXT);
+        drawText(x + 138, y, "Knives " + activeKnives + "/" + maxKnives, "Arial", 20);
     }
 
     private void drawLevel4Message() {
@@ -883,6 +936,9 @@ public class Game extends GameEngine{
             winningPlayer = getFinalWinner();
         } else {
             playerScores[playerNumber - 1] += GATE_WIN_SCORE;
+            if (currentLevel >= 1 && currentLevel <= 4) {
+                awardPowerLevel(playerNumber);
+            }
         }
 
         levelComplete = true;
@@ -904,6 +960,43 @@ public class Game extends GameEngine{
         levelDeaths[0] = 0;
         levelDeaths[1] = 0;
         winningPlayer = 0;
+    }
+
+    private void awardPowerLevel(int playerNumber) {
+        if (playerNumber < 1 || playerNumber > 2) {
+            return;
+        }
+
+        int index = playerNumber - 1;
+        if (playerPowerLevels[index] < MAX_POWER_LEVEL) {
+            playerPowerLevels[index]++;
+        }
+
+        applyPlayerPowerLevels();
+    }
+
+    private void applyPlayerPowerLevels() {
+        for (int i = 0; i < player.length; i++) {
+            if (player[i] != null) {
+                player[i].setPowerLevel(playerPowerLevels[i]);
+            }
+        }
+    }
+
+    private int getMaxKnivesForPowerLevel(int powerLevel) {
+        if (powerLevel <= MIN_POWER_LEVEL) {
+            return 0;
+        }
+
+        return Math.min(MAX_POWER_LEVEL - 1, powerLevel - MIN_POWER_LEVEL);
+    }
+
+    private void firePlayerKnife(int playerNumber) {
+        if (level == null || currentLevel < 1 || currentLevel > 4) {
+            return;
+        }
+
+        level.firePlayerKnife(playerNumber, knifeImage, playerPowerLevels[playerNumber - 1]);
     }
 
     private void startFakeGateDeathSequence(int playerIndex) {
@@ -1080,13 +1173,17 @@ public class Game extends GameEngine{
             return;
         }
 
-        updateClipVolume(music.getLoopClip());
+        updateClipVolume(music.getLoopClip(), masterVolumeGain + BGM_VOLUME_OFFSET);
     }
 
     private void updateClipVolume(Clip clip) {
+        updateClipVolume(clip, masterVolumeGain);
+    }
+
+    private void updateClipVolume(Clip clip, float volumeGain) {
         if (clip != null && clip.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
             FloatControl control = (FloatControl)clip.getControl(FloatControl.Type.MASTER_GAIN);
-            float volume = Math.max(control.getMinimum(), Math.min(control.getMaximum(), masterVolumeGain));
+            float volume = Math.max(control.getMinimum(), Math.min(control.getMaximum(), volumeGain));
             control.setValue(volume);
         }
     }
@@ -1635,6 +1732,7 @@ public class Game extends GameEngine{
         player[0] = new player(maleStay, maleLeft, maleJump);
         player[1] = new player(maleStay, maleLeft, maleJump);
         applyCharacterSelection();
+        applyPlayerPowerLevels();
 
         portalImage = new Image[4];
         portalImage[0] = subImage(portalSheet, 0, 0, 50, 50);
@@ -1790,6 +1888,7 @@ public class Game extends GameEngine{
         player[0].velocityY = 0;
         player[1].velocityX = 0;
         player[1].velocityY = 0;
+        applyPlayerPowerLevels();
 
         if (level.getGate() != null) {
             level.getGate().reset();
@@ -1864,6 +1963,7 @@ public class Game extends GameEngine{
         player[0].velocityY = 0;
         player[1].velocityX = 0;
         player[1].velocityY = 0;
+        applyPlayerPowerLevels();
 
 
         if (level.getGate() != null) {
@@ -1927,6 +2027,7 @@ public class Game extends GameEngine{
         player[0].velocityY = 0;
         player[1].velocityX = 0;
         player[1].velocityY = 0;
+        applyPlayerPowerLevels();
 
         if (level.getGate() != null) {
             level.getGate().reset();
@@ -2090,6 +2191,16 @@ public class Game extends GameEngine{
                 }
 
                 return;
+            }
+
+            if (currentLevel >= 1 && currentLevel <= 4) {
+                if (event.getKeyCode() == KeyEvent.VK_F) {
+                    firePlayerKnife(1);
+                }
+
+                if (event.getKeyCode() == KeyEvent.VK_ENTER) {
+                    firePlayerKnife(2);
+                }
             }
 
             if(event.getKeyCode() == KeyEvent.VK_LEFT){
