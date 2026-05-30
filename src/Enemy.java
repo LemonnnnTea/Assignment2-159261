@@ -1,5 +1,6 @@
 import java.awt.*;
 
+// Standard platform enemy: patrols, chases players on its own surface, and dies to stomps/projectiles.
 public class Enemy {
     private static final double SIZE = 50;
     private static final double WORLD_HEIGHT = 1080;
@@ -88,6 +89,7 @@ public class Enemy {
     }
 
     private player chooseTarget(player player1, player player2) {
+        // Keep targeting local to the platform so enemies do not chase through unrelated routes.
         boolean player1OnPlatform = isPlayerOnPlatform(player1);
         boolean player2OnPlatform = isPlayerOnPlatform(player2);
 
@@ -228,6 +230,7 @@ public class Enemy {
     }
 
     private boolean isStompedBy(player p) {
+        // Sweep from previous to current position so fast falling players still get fair stomp hits.
         double previousBottom = p.previousY + p.height;
         double currentBottom = p.y + p.height;
 

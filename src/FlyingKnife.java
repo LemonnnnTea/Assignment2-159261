@@ -1,5 +1,6 @@
 import java.awt.*;
 
+// Triggered projectile trap with optional area triggers and cooldown-based resetting.
 public class FlyingKnife extends Trap {
 
     double startX, startY;
@@ -88,6 +89,7 @@ public class FlyingKnife extends Trap {
             }
 
             if (isTriggeredBy(p1) || isTriggeredBy(p2)) {
+                // Restart from the launcher so repeated knives follow the same readable path.
                 triggered = true;
                 x = startX;
                 y = startY;
@@ -140,6 +142,7 @@ public class FlyingKnife extends Trap {
             return false;
         }
 
+        // Rotated collision matches the knife sprite direction instead of using a loose axis-aligned box.
         return CollisionManager.obbCollision(
                 p.x, p.y, p.width, p.height, 0,
                 x, y, width, height, getDirectionAngleDegrees()

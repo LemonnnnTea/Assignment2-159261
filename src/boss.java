@@ -1,5 +1,6 @@
 import java.awt.*;
 
+// Minimal boss sprite holder kept for older level code that only needs position and image data.
 public class boss {
     double x, y;
     Image img;

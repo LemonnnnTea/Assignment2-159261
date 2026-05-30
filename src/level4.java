@@ -21,6 +21,7 @@ public class level4 extends level {
         super.update(dt);
 
         if (raceWinner == 0) {
+            // Level 4 is a direct race, so touching the real door decides immediately.
             if (isTouchingTrueDoor(player1)) {
                 finishRace(1);
             } else if (isTouchingTrueDoor(player2)) {
@@ -99,6 +100,7 @@ public class level4 extends level {
     }
 
     private void addPlatforms(Image platformImage) {
+        // Symmetric stacked lanes support a race format while fake doors disrupt obvious routes.
         addBlockRun(0, 930, 8, platformImage, 250);
         addBlockRun(500, 930, 7, platformImage, 600);
         addBlockRun(1000, 930, 6, platformImage, 1150);
@@ -202,6 +204,7 @@ public class level4 extends level {
         double runEndX = runStartX + (blocks - 1) * BLOCK_SIZE;
 
         for (double pitX : pitXs) {
+            // A pit marker covers up to two adjacent tiles, clamped to the platform run.
             boolean pitStartsHere = Math.abs(x - pitX) < 0.01;
             boolean pitContinuesRight = pitX + BLOCK_SIZE <= runEndX &&
                     Math.abs(x - (pitX + BLOCK_SIZE)) < 0.01;
@@ -246,6 +249,7 @@ public class level4 extends level {
         raceWinner = playerNumber;
 
         if (playerNumber == 1) {
+            // Trigger the gate animation for feedback even though this level uses raceWinner as completion.
             if (!player1.reachedGate && gate != null) {
                 gate.playerReach(1);
             }

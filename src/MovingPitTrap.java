@@ -1,5 +1,6 @@
 import java.awt.*;
 
+// Moving hazard that ping-pongs between two x positions.
 public class MovingPitTrap extends Trap {
 
     private final double startX;
@@ -28,6 +29,7 @@ public class MovingPitTrap extends Trap {
         double maxStep = speed * dt;
 
         if (Math.abs(dx) <= maxStep) {
+            // Snap at the endpoint to avoid jitter when dt would overshoot the target.
             x = targetX;
             movingToEnd = !movingToEnd;
             return;

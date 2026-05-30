@@ -64,6 +64,7 @@ public class level1 extends level {
     }
 
     private void addPlatforms(Image platformImage) {
+        // Intro layout teaches basic jumps first, then adds vertical routing and wind assistance.
         addBlockRun(0, 930, 7, platformImage);
         addBlockRun(450, 930, 5, platformImage);
         addBlockRun(750, 830, 3, platformImage);
@@ -147,6 +148,7 @@ public class level1 extends level {
     }
 
     private void killIfBelowStage(player p) {
+        // Level-specific death plane keeps failed falls quick instead of waiting for world bounds.
         if (p != null && !p.dead && !p.reachedGate && p.y > DEATH_Y) {
             p.die();
         }

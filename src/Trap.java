@@ -1,5 +1,6 @@
 import java.awt.*;
 
+// Shared trap contract: traps update themselves, report player hits, and can customize collision effects.
 public abstract class Trap {
 
     double x, y;
@@ -21,6 +22,7 @@ public abstract class Trap {
     public abstract boolean checkCollision(player p);
 
     public void onCollide(player p) {
+        // Most traps simply kill; fake doors and return doors override this behavior.
         p.die();
     }
 

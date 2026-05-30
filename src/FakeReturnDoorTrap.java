@@ -1,5 +1,6 @@
 import java.awt.*;
 
+// Fake door that looks usable but sends players back to configured checkpoints.
 public class FakeReturnDoorTrap extends Trap {
     private static final double COOLDOWN = 0.35;
     private static final double MESSAGE_TIME = 2.0;
@@ -70,6 +71,7 @@ public class FakeReturnDoorTrap extends Trap {
         }
 
         if (timer > 0) {
+            // Cooldown prevents instant re-trigger loops after a player is teleported onto a nearby door.
             timer -= dt;
             return;
         }

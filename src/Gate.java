@@ -1,5 +1,6 @@
 import java.awt.*;
 
+// True exit gate: the level completes only after the open-close animation finishes.
 public class Gate {
 
     double x, y;
@@ -41,6 +42,7 @@ public class Gate {
 
         this.images = images;
 
+        // The requested duration covers opening and closing, so each sprite step uses a fraction of it.
         int animationSteps = Math.max(1, (images.length - 1) * 2);
         frameTime = animationTime / animationSteps;
     }
@@ -109,6 +111,7 @@ public class Gate {
         }
 
         if (firstPlayerReached == 0) {
+            // The first entrant determines the winner even if the other player enters during the animation.
             firstPlayerReached = playerNumber;
         }
 

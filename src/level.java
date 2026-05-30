@@ -74,6 +74,8 @@ public abstract class level {
 
         updateDeadPlayers(dt);
 
+        // World systems are updated before collisions so moving platforms, portals,
+        // enemies, and projectiles all use the same frame's player positions.
         updateWindVents(dt);
 
         if (isPlayerActive(player1)) {
@@ -269,6 +271,7 @@ public abstract class level {
         for (CatEnemy cat : cats) {
             cat.update(dt, player1, player2);
 
+            // Levels report gameplay events upward; Game decides which sounds and rewards to apply.
             if (cat.consumeAttackSoundRequest()) {
                 catAttackedThisFrame = true;
             }
@@ -698,6 +701,7 @@ public abstract class level {
         int enemyCount = Math.max(1, eligibleSegments.size() / 2);
         SurfaceSegment catSegment = null;
 
+        // One regular platform enemy is replaced by a cat on each normal level.
         if (CatEnemy.hasFrames()) {
             catSegment = eligibleSegments.get(0);
             addCatOnSegment(catSegment);

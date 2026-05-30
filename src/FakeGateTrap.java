@@ -1,5 +1,6 @@
 import java.awt.*;
 
+// Fake exit gate that locks one player, plays the door animation, then kills that player.
 public class FakeGateTrap extends Trap {
     private static final double ANIMATION_TIME = 1.5;
 
@@ -92,6 +93,7 @@ public class FakeGateTrap extends Trap {
 
         trappedPlayer = p;
         trappedPlayerNumber = 0;
+        // The player stays frozen while the animation sells the trap before death is applied.
         p.trappedInFakeGate = true;
         p.velocityX = 0;
         p.velocityY = 0;
@@ -104,6 +106,7 @@ public class FakeGateTrap extends Trap {
 
     public void setTrappedPlayerNumber(int playerNumber) {
         if (trappedPlayer != null && trappedPlayerNumber == 0) {
+            // Collision detection happens before level-level identity reporting, so the trap records it here.
             trappedPlayerNumber = playerNumber;
         }
     }

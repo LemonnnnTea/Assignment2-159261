@@ -1,5 +1,6 @@
 import java.awt.*;
 
+// Animated saw hazard; visual spin is independent from movement along its path.
 public class Saw extends Trap {
 
     double startX, startY;
@@ -51,6 +52,7 @@ public class Saw extends Trap {
         double distance = Math.sqrt(dx * dx + dy * dy);
 
         if (distance < 2) {
+            // Flip target near the endpoint so tiny floating-point drift does not stall movement.
             movingToEnd = !movingToEnd;
             return;
         }

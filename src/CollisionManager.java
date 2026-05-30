@@ -18,6 +18,8 @@ public class CollisionManager {
         OrientedBox box1 = new OrientedBox(x1, y1, w1, h1, angle1Degrees);
         OrientedBox box2 = new OrientedBox(x2, y2, w2, h2, angle2Degrees);
 
+        // Separating Axis Theorem: two oriented boxes collide only if they overlap
+        // on every local axis from both boxes.
         return overlapsOnAxis(box1, box2, box1.axisXx, box1.axisXy) &&
                 overlapsOnAxis(box1, box2, box1.axisYx, box1.axisYy) &&
                 overlapsOnAxis(box1, box2, box2.axisXx, box2.axisXy) &&

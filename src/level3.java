@@ -66,6 +66,7 @@ public class level3 extends level {
     }
 
     private void addPlatforms(Image platformImage, Image pitImage) {
+        // This stage raises the route density: several pits sit on mandatory horizontal runs.
         addBlockRun(0, 930, 6, platformImage, pitImage);
         addBlockRun(380, 930, 5, platformImage, pitImage, 430);
         addBlockRun(720, 930, 6, platformImage, pitImage, 770, 870, 970);
@@ -147,6 +148,7 @@ public class level3 extends level {
         double runEndX = runStartX + (blocks - 1) * BLOCK_SIZE;
 
         for (double pitX : pitXs) {
+            // A pit marker covers up to two adjacent tiles, clamped to the platform run.
             boolean pitStartsHere = Math.abs(x - pitX) < 0.01;
             boolean pitContinuesRight = pitX + BLOCK_SIZE <= runEndX &&
                     Math.abs(x - (pitX + BLOCK_SIZE)) < 0.01;
@@ -162,6 +164,7 @@ public class level3 extends level {
     }
 
     private void killIfBelowStage(player p) {
+        // Level-specific death plane keeps failed falls quick instead of waiting for world bounds.
         if (p != null && !p.dead && !p.reachedGate && p.y > DEATH_Y) {
             p.die();
         }

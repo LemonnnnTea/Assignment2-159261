@@ -1,6 +1,8 @@
 import java.awt.*;
 import java.util.ArrayList;
 
+// A stronger platform enemy: patrols like a normal enemy, but attacks only when
+// it is facing a nearby player on the same platform.
 public class CatEnemy {
     static final double SIZE = 50;
 
@@ -138,6 +140,8 @@ public class CatEnemy {
             cooldownTimer = Math.max(0, cooldownTimer - dt);
         }
 
+        // During the attack animation the cat stops patrolling and fires only once
+        // the full one-second animation has completed.
         if (attacking) {
             updateAttack(dt);
             return;
@@ -227,6 +231,7 @@ public class CatEnemy {
         player best = null;
         double bestDistance = Double.MAX_VALUE;
 
+        // If both players satisfy the attack condition, target the closer one.
         player[] players = {player1, player2};
         for (player candidate : players) {
             if (!canAttack(candidate)) {
@@ -253,6 +258,7 @@ public class CatEnemy {
             return false;
         }
 
+        // The cat must be facing the player, which lets players dodge by crossing behind it.
         double playerCenter = p.x + p.width / 2.0;
         double catCenter = x + width / 2.0;
         return facingLeft ? playerCenter < catCenter : playerCenter > catCenter;
@@ -284,6 +290,7 @@ public class CatEnemy {
             player target = isActivePlayer(fireball.target) ? fireball.target : nearestActivePlayer(fireball, player1, player2);
             fireball.target = target;
 
+            // Fireballs continuously steer toward an active player instead of flying straight.
             if (target != null) {
                 double targetX = target.x + target.width / 2.0;
                 double targetY = target.y + target.height / 2.0;
@@ -358,6 +365,7 @@ public class CatEnemy {
     }
 
     private void spawnHitParticles(double centerX, double centerY) {
+        // A short burst makes fireball hits readable even when the player immediately respawns.
         for (int i = 0; i < 20; i++) {
             double angle = Math.random() * Math.PI * 2;
             double speed = 80 + Math.random() * 180;
@@ -422,6 +430,7 @@ public class CatEnemy {
         fallingAfterDeath = true;
         attacking = false;
         deathVelocityY = 0;
+        // Remove active attacks so a defeated cat cannot kill a player after death.
         fireballs.clear();
     }
 

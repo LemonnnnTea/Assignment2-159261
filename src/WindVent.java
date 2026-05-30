@@ -2,6 +2,7 @@ import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 
+// Applies a capped upward force and visual particles over a rectangular wind zone.
 public class WindVent {
     private static final double TARGET_LIFT_SPEED = -180;
     private static final double LIFT_ACCELERATION = 2600;
@@ -45,6 +46,7 @@ public class WindVent {
             return;
         }
 
+        // Accelerate toward a target lift speed instead of snapping velocity for smoother control.
         if (p.velocityY > TARGET_LIFT_SPEED) {
             p.velocityY -= LIFT_ACCELERATION * dt;
         }
@@ -70,6 +72,7 @@ public class WindVent {
     private void spawnParticles(double dt) {
         particleTimer += dt;
 
+        // Keep emission tied to elapsed time so particle density stays stable across framerate changes.
         while (particleTimer >= PARTICLE_INTERVAL) {
             particleTimer -= PARTICLE_INTERVAL;
 

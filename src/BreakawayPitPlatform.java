@@ -3,6 +3,7 @@ import java.awt.geom.Rectangle2D;
 import java.util.Collections;
 import java.util.List;
 
+// Platform tile that disappears after contact and later resets for repeated attempts.
 public class BreakawayPitPlatform extends Platform {
     private static final double TRIGGER_TOLERANCE = 12;
     private static final double DEFAULT_FALL_DELAY = 0.0;
@@ -39,6 +40,7 @@ public class BreakawayPitPlatform extends Platform {
         }
 
         if (!triggered && (isTriggeredBy(p1) || isTriggeredBy(p2))) {
+            // Trigger from standing or overlapping so edge landings still break the tile.
             triggered = true;
             timer = 0;
         }

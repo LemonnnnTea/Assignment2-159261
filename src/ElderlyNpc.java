@@ -1,5 +1,6 @@
 import java.awt.*;
 
+// Passive NPC used for short contextual hints without interrupting player control.
 public class ElderlyNpc {
     static final double SIZE = 50;
     private static final double FRAME_TIME = 0.2;
@@ -33,6 +34,7 @@ public class ElderlyNpc {
 
     private void updateAnimation(double dt) {
         if (restTimer > 0) {
+            // Hold the first frame between cycles so the NPC reads as idle, not constantly twitching.
             restTimer = Math.max(0, restTimer - dt);
             frameIndex = 0;
             animationTimer = 0;
@@ -67,6 +69,7 @@ public class ElderlyNpc {
             return false;
         }
 
+        // Interaction is distance-based so either player can talk from either side of the sprite.
         return distanceTo(p) <= INTERACTION_RANGE;
     }
 

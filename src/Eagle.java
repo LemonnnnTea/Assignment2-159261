@@ -52,6 +52,7 @@ public class Eagle {
     void update(double dt, player[] players, level currentLevel) {
         updateAnimation(dt);
 
+        // The eagle uses a small state machine so it can patrol, chase, then return home.
         if (state == EagleState.CRUISING) {
             updateCruise(dt, players);
         } else if (state == EagleState.CHASING) {
@@ -279,6 +280,7 @@ public class Eagle {
             return;
         }
 
+        // Solid platform tiles become blocked cells, letting the eagle route around terrain.
         boolean[][] blocked = buildBlockedGrid(currentLevel);
         GridPoint start = cellFor(x + width / 2.0, y + height / 2.0);
         GridPoint goal = cellFor(targetCenterX, targetCenterY);
@@ -325,6 +327,7 @@ public class Eagle {
         Node[][] nodes = new Node[GRID_ROWS][GRID_COLS];
         PriorityQueue<Node> open = new PriorityQueue<>();
 
+        // A* search gives the eagle meaningful pursuit instead of direct-line movement.
         Node startNode = node(nodes, start.col, start.row);
         startNode.g = 0;
         startNode.f = heuristic(start, goal);

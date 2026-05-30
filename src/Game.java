@@ -79,6 +79,8 @@ public class Game extends GameEngine{
     private static final Color COLOR_MUTED_TEXT = new Color(184, 194, 214);
     private static final Color COLOR_GOOD = new Color(50, 170, 100);
     private static final Color COLOR_LOCKED = new Color(70, 78, 96);
+
+    // Story overlays are kept data-driven so level loading can stay focused on gameplay state.
     private static final String[] LEVEL_BRIEFING_TITLES = {
             "",
             "Home Was Taken",
@@ -1276,6 +1278,7 @@ public class Game extends GameEngine{
 
             level.update(dt);
 
+            // Gate sounds are triggered from state transitions so they play once per entry.
             if ((!player1WasInGate && player[0].reachedGate) ||
                     (!player2WasInGate && player[1].reachedGate)) {
                 playSound(doorSound);
@@ -1300,6 +1303,7 @@ public class Game extends GameEngine{
                 playSound(enemyDeadSound);
             }
 
+            // Cat attack/death events are reported by the level and converted to audio here.
             if (level.didCatAttack()) {
                 playSound(catAttackSound);
             }
@@ -1742,6 +1746,7 @@ public class Game extends GameEngine{
             return;
         }
 
+        // Cat kills are more valuable than regular enemies and directly improve that player.
         for (int playerNumber = 1; playerNumber <= 2; playerNumber++) {
             int catKills = level.getCatKillsForPlayer(playerNumber);
             for (int i = 0; i < catKills; i++) {
@@ -2029,6 +2034,8 @@ public class Game extends GameEngine{
         }
 
         try {
+            // One-shot clips from GameEngine cannot be stopped later, so fake-gate sounds
+            // are tracked explicitly and cancelled when leaving or restarting a level.
             Clip clip = AudioSystem.getClip();
             clip.open(sound.getAudioFormat(), sound.getData(), 0, (int)sound.getBufferSize());
             updateClipVolume(clip);

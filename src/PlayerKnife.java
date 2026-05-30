@@ -1,5 +1,6 @@
 import java.awt.*;
 
+// Player-fired carrot projectile. Ownership is preserved for score and power rewards.
 public class PlayerKnife {
     private static final double WORLD_WIDTH = 1920;
     private static final double WORLD_HEIGHT = 1080;
@@ -20,6 +21,7 @@ public class PlayerKnife {
         this.image = image;
 
         int direction = owner.faceRight ? 1 : -1;
+        // Spawn just outside the shooter to avoid immediately overlapping the owner.
         x = owner.faceRight ? owner.x + owner.width : owner.x - width;
         y = owner.y + owner.height / 2.0 - height / 2.0;
         velocityX = direction * SPEED;

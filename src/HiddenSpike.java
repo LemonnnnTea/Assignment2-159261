@@ -1,5 +1,6 @@
 import java.awt.*;
 
+// Spike that appears shortly after a player enters its trigger area, then hides again.
 public class HiddenSpike extends Spike {
     private static final double POP_DELAY = 0.3;
     private static final double ACTIVE_TIME = 1.5;
@@ -31,6 +32,7 @@ public class HiddenSpike extends Spike {
     @Override
     public void update(double dt, player p1, player p2) {
         if (state == 0 && (isTriggeredBy(p1) || isTriggeredBy(p2))) {
+            // Delay gives players a readable warning window before the spike can hurt them.
             state = 1;
             timer = 0;
         }

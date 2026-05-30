@@ -1,5 +1,6 @@
 import java.awt.*;
 
+// Short-lived portal sparkle; movement and alpha are deterministic once spawned.
 public class PortalParticle {
     double x, y;
     double velocityX, velocityY;
@@ -36,6 +37,7 @@ public class PortalParticle {
             return 0;
         }
 
+        // Keep alpha derived from remaining life so particles fade consistently after pauses.
         return Math.max(0, life / maxLife);
     }
 }

@@ -3,6 +3,7 @@ import java.awt.geom.Rectangle2D;
 import java.util.Collections;
 import java.util.List;
 
+// Base platform block. Dynamic platform subclasses override visibility and collision bounds.
 public class Platform {
     public static final int TILE_SIZE = 50;
 
@@ -34,6 +35,7 @@ public class Platform {
             return Collections.emptyList();
         }
 
+        // Return a list so subclasses can expose multiple or temporary collision regions.
         return Collections.singletonList(new Rectangle2D.Double(x, y, width, height));
     }
 

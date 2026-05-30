@@ -15,6 +15,7 @@ public class Spike extends Trap {
 
     @Override
     public boolean checkCollision(player p) {
+        // Use only the sharp tip area so brushing the sprite sides is not unfairly lethal.
         double collisionX = x + COLLISION_HORIZONTAL_INSET;
         double collisionY = y + height - COLLISION_HEIGHT;
         double collisionWidth = width - COLLISION_HORIZONTAL_INSET * 2;

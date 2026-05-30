@@ -1,5 +1,6 @@
 import java.awt.*;
 
+// Animated teleport endpoint used for shortcuts and route-control puzzles.
 public class Portal {
 
     double x, y;
@@ -70,6 +71,7 @@ public class Portal {
     public void teleport(player p) {
         p.x = targetX;
         p.y = targetY;
+        // Reset previous position so swept collisions do not span the teleport jump.
         p.previousX = targetX;
         p.previousY = targetY;
         p.velocityX = 0;

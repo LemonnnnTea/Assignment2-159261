@@ -1,5 +1,6 @@
 import java.awt.*;
 
+// Hazard alternates between two positions and blinks at the next position before switching.
 public class SwitchingPitTrap extends Trap {
 
     private static final double WARNING_TIME = 0.5;
@@ -40,6 +41,7 @@ public class SwitchingPitTrap extends Trap {
         }
 
         if (isWarning()) {
+            // During warning, draw at the next position but disable collision.
             x = nextX();
             y = nextY();
         } else {

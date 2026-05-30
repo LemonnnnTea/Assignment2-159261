@@ -74,6 +74,7 @@ public class player {
     }
 
     private void updateSpeed() {
+        // Power levels stay as small movement boosts so progression matters without breaking jumps.
         speed = DEFAULT_SPEED * (1.0 + (powerLevel - 1) * 0.01) * speedMultiplier;
     }
 
@@ -83,6 +84,7 @@ public class player {
 
     public void updatePlayer(double dt) {
 
+        // Dead and trapped players are frozen until the level system respawns or releases them.
         if (dead) {
             velocityX = 0;
             velocityY = 0;
@@ -101,6 +103,7 @@ public class player {
             return;
         }
 
+        // Previous position is used by swept collision checks such as enemy stomp detection.
         previousX = x;
         previousY = y;
 
@@ -156,7 +159,7 @@ public class player {
         }
 
 
-        // Die when leaving the map.
+        // Leaving the playfield counts as death so players cannot bypass the level layout.
         if (y < -50) {
             die();
         }
@@ -202,6 +205,7 @@ public class player {
         previousY = spawnY;
         velocityX = 0;
         velocityY = 0;
+        // Clear held inputs so respawn never immediately walks or jumps into a hazard.
         leftPressed = false;
         rightPressed = false;
         jumpPressed = false;

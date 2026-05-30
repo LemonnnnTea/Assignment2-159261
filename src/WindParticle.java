@@ -1,5 +1,6 @@
 import java.awt.*;
 
+// Lightweight visual marker for active wind; gameplay force is handled by WindVent.
 public class WindParticle {
     double x, y;
     double velocityX, velocityY;
@@ -42,6 +43,7 @@ public class WindParticle {
             return 0;
         }
 
+        // Rendering uses this normalized life value for fade-out without storing extra alpha state.
         return Math.max(0, life / maxLife);
     }
 }

@@ -481,6 +481,7 @@ public class level5 extends level {
         enemySpawnTimer += dt;
         bossMissileTimer += dt;
 
+        // Spawn pressure scales with boss phase through enemySpawnInterval().
         if (enemySpawnTimer >= enemySpawnInterval()) {
             enemySpawnTimer = 0;
             flyingEnemies.add(new FlyingEnemy(1650, 120 + Math.random() * 780));
@@ -675,6 +676,7 @@ public class level5 extends level {
             return;
         }
 
+        // Player missiles prioritize incoming boss missiles before targeting the boss.
         double targetX;
         double targetY;
         BossMissile targetMissile = nearestBossMissile(missile);
@@ -781,6 +783,7 @@ public class level5 extends level {
                 continue;
             }
 
+            // Boss missiles steer hard during the first second, then keep a softer homing curve.
             if (missile.elapsed <= 1.0) {
                 double startSpeed = missile.phase == 3 ? 240 : 180;
                 double speed = startSpeed + (600 - startSpeed) * missile.elapsed;
