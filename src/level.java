@@ -16,6 +16,7 @@ public abstract class level {
     ArrayList<PortalParticle> portalParticles = new ArrayList<>();
     ArrayList<WindVent> windVents = new ArrayList<>();
     ArrayList<Enemy> enemies = new ArrayList<>();
+    ArrayList<CatEnemy> cats = new ArrayList<>();
     ArrayList<PlayerKnife> playerKnives = new ArrayList<>();
     ArrayList<SurfaceSegment> enemyPlatformSegments = new ArrayList<>();
     Gate gate;
@@ -25,9 +26,13 @@ public abstract class level {
     private boolean player1FakeGateEatenThisFrame;
     private boolean player2FakeGateEatenThisFrame;
     private boolean enemyDiedThisFrame;
+    private boolean catAttackedThisFrame;
+    private boolean catDiedThisFrame;
     private int enemiesKilledThisFrame;
     private int player1EnemyKillsThisFrame;
     private int player2EnemyKillsThisFrame;
+    private int player1CatKillsThisFrame;
+    private int player2CatKillsThisFrame;
 
     double spawnX1, spawnY1;
     double spawnX2, spawnY2;
@@ -59,9 +64,13 @@ public abstract class level {
         player1FakeGateEatenThisFrame = false;
         player2FakeGateEatenThisFrame = false;
         enemyDiedThisFrame = false;
+        catAttackedThisFrame = false;
+        catDiedThisFrame = false;
         enemiesKilledThisFrame = 0;
         player1EnemyKillsThisFrame = 0;
         player2EnemyKillsThisFrame = 0;
+        player1CatKillsThisFrame = 0;
+        player2CatKillsThisFrame = 0;
 
         updateDeadPlayers(dt);
 
@@ -87,6 +96,7 @@ public abstract class level {
         boolean player2Teleported = isPlayerActive(player2) && handlePortals(player2);
 
         updateEnemies(dt);
+        updateCats(dt);
 
         updatePlayerKnives(dt);
 
@@ -255,6 +265,19 @@ public abstract class level {
         }
     }
 
+    private void updateCats(double dt) {
+        for (CatEnemy cat : cats) {
+            cat.update(dt, player1, player2);
+
+            if (cat.consumeAttackSoundRequest()) {
+                catAttackedThisFrame = true;
+            }
+
+            handleCatCollision(cat, player1, 1);
+            handleCatCollision(cat, player2, 2);
+        }
+    }
+
     private void updatePlayerKnives(double dt) {
         for (int i = playerKnives.size() - 1; i >= 0; i--) {
             PlayerKnife knife = playerKnives.get(i);
@@ -272,6 +295,24 @@ public abstract class level {
     }
 
     private boolean hitEnemyWithKnife(PlayerKnife knife) {
+        for (CatEnemy cat : cats) {
+            if (!cat.canCollide()) {
+                continue;
+            }
+
+            if (!CollisionManager.obbCollision(
+                    knife.x, knife.y, knife.width, knife.height, knife.getDirectionAngleDegrees(),
+                    cat.x, cat.y, cat.width, cat.height, 0
+            )) {
+                continue;
+            }
+
+            if (cat.killByProjectile()) {
+                markCatKilledByPlayer(knife.ownerPlayerNumber);
+                return true;
+            }
+        }
+
         for (Enemy enemy : enemies) {
             if (!enemy.canCollide()) {
                 continue;
@@ -311,6 +352,24 @@ public abstract class level {
         }
     }
 
+    private void handleCatCollision(CatEnemy cat, player p, int playerNumber) {
+        if (!cat.canCollide() || !isPlayerActive(p)) {
+            return;
+        }
+
+        Enemy.ContactResult result = cat.handleCollision(p);
+
+        if (result == Enemy.ContactResult.PLAYER_EATEN) {
+            if (playerNumber == 1) {
+                player1EatenThisFrame = true;
+            } else {
+                player2EatenThisFrame = true;
+            }
+        } else if (result == Enemy.ContactResult.ENEMY_KILLED) {
+            markCatKilledByPlayer(playerNumber);
+        }
+    }
+
     private void markEnemyKilledByPlayer(int playerNumber) {
         enemyDiedThisFrame = true;
         enemiesKilledThisFrame++;
@@ -319,6 +378,17 @@ public abstract class level {
             player1EnemyKillsThisFrame++;
         } else if (playerNumber == 2) {
             player2EnemyKillsThisFrame++;
+        }
+    }
+
+    private void markCatKilledByPlayer(int playerNumber) {
+        catDiedThisFrame = true;
+        enemiesKilledThisFrame++;
+
+        if (playerNumber == 1) {
+            player1CatKillsThisFrame++;
+        } else if (playerNumber == 2) {
+            player2CatKillsThisFrame++;
         }
     }
 
@@ -478,6 +548,10 @@ public abstract class level {
         return enemies;
     }
 
+    public ArrayList<CatEnemy> getCats() {
+        return cats;
+    }
+
     public ArrayList<PlayerKnife> getPlayerKnives() {
         return playerKnives;
     }
@@ -541,17 +615,37 @@ public abstract class level {
         return enemyDiedThisFrame;
     }
 
+    public boolean didCatAttack() {
+        return catAttackedThisFrame;
+    }
+
+    public boolean didCatDie() {
+        return catDiedThisFrame;
+    }
+
     public int getEnemiesKilledThisFrame() {
         return enemiesKilledThisFrame;
     }
 
     public int getEnemyKillsForPlayer(int playerNumber) {
         if (playerNumber == 1) {
-            return player1EnemyKillsThisFrame;
+            return player1EnemyKillsThisFrame + player1CatKillsThisFrame;
         }
 
         if (playerNumber == 2) {
-            return player2EnemyKillsThisFrame;
+            return player2EnemyKillsThisFrame + player2CatKillsThisFrame;
+        }
+
+        return 0;
+    }
+
+    public int getCatKillsForPlayer(int playerNumber) {
+        if (playerNumber == 1) {
+            return player1CatKillsThisFrame;
+        }
+
+        if (playerNumber == 2) {
+            return player2CatKillsThisFrame;
         }
 
         return 0;
@@ -564,6 +658,7 @@ public abstract class level {
         portalParticles.clear();
         windVents.clear();
         enemies.clear();
+        cats.clear();
         playerKnives.clear();
         enemyPlatformSegments.clear();
     }
@@ -578,6 +673,7 @@ public abstract class level {
 
     protected void addEnemiesToHalfPlatforms(Image[] enemyIdleFrames, Image[] enemyLeftFrames) {
         enemies.clear();
+        cats.clear();
 
         if (enemyIdleFrames == null || enemyLeftFrames == null ||
                 enemyIdleFrames.length == 0 || enemyLeftFrames.length == 0) {
@@ -600,13 +696,31 @@ public abstract class level {
         }
 
         int enemyCount = Math.max(1, eligibleSegments.size() / 2);
+        SurfaceSegment catSegment = null;
 
-        for (int i = 0; i < eligibleSegments.size() && enemies.size() < enemyCount; i += 2) {
-            addEnemyOnSegment(eligibleSegments.get(i), enemyIdleFrames, enemyLeftFrames);
+        if (CatEnemy.hasFrames()) {
+            catSegment = eligibleSegments.get(0);
+            addCatOnSegment(catSegment);
         }
 
-        for (int i = 1; i < eligibleSegments.size() && enemies.size() < enemyCount; i += 2) {
-            addEnemyOnSegment(eligibleSegments.get(i), enemyIdleFrames, enemyLeftFrames);
+        int normalEnemyTarget = Math.max(0, enemyCount - cats.size());
+
+        for (int i = 0; i < eligibleSegments.size() && enemies.size() < normalEnemyTarget; i += 2) {
+            SurfaceSegment segment = eligibleSegments.get(i);
+            if (segment == catSegment) {
+                continue;
+            }
+
+            addEnemyOnSegment(segment, enemyIdleFrames, enemyLeftFrames);
+        }
+
+        for (int i = 1; i < eligibleSegments.size() && enemies.size() < normalEnemyTarget; i += 2) {
+            SurfaceSegment segment = eligibleSegments.get(i);
+            if (segment == catSegment) {
+                continue;
+            }
+
+            addEnemyOnSegment(segment, enemyIdleFrames, enemyLeftFrames);
         }
     }
 
@@ -677,6 +791,10 @@ public abstract class level {
 
     private void addEnemyOnSegment(SurfaceSegment segment, Image[] enemyIdleFrames, Image[] enemyLeftFrames) {
         enemies.add(new Enemy(segment.left, segment.right, segment.top, enemyIdleFrames, enemyLeftFrames));
+    }
+
+    private void addCatOnSegment(SurfaceSegment segment) {
+        cats.add(new CatEnemy(segment.left, segment.right, segment.top));
     }
 
     private static class SurfaceSegment {

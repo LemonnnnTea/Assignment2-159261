@@ -158,6 +158,8 @@ public class Game extends GameEngine{
     AudioClip wowSound;
     AudioClip buffSound;
     AudioClip warnEagleSound;
+    AudioClip catAttackSound;
+    AudioClip catDeadSound;
     AudioClip menuBgm;
     AudioClip[] levelBgms = new AudioClip[6];
     AudioClip currentBgm;
@@ -247,6 +249,8 @@ public class Game extends GameEngine{
     Image[] buffFrames;
     Image[] eagleFrames;
     Image[] bossFrames;
+    Image[] catWalkFrames;
+    Image[] catAttackFrames;
     Image[] portalImage;
     Image[] gateImage;
 
@@ -307,6 +311,12 @@ public class Game extends GameEngine{
         for (Enemy enemy : Level.getEnemies()) {
             if (enemy.isActive()) {
                 drawEnemy(enemy);
+            }
+        }
+
+        for (CatEnemy cat : Level.getCats()) {
+            if (cat.isActive()) {
+                drawCat(cat);
             }
         }
 
@@ -520,6 +530,21 @@ public class Game extends GameEngine{
 
         for (int i = 0; i < frames.length; i++) {
             frames[i] = subImage(sheet, i * spriteSize, 0, spriteSize, spriteSize);
+        }
+
+        return frames;
+    }
+
+    private Image[] sliceCatRow(Image sheet, int row) {
+        if (sheet == null) {
+            return new Image[0];
+        }
+
+        int spriteSize = 100;
+        Image[] frames = new Image[5];
+
+        for (int i = 0; i < frames.length; i++) {
+            frames[i] = subImage(sheet, i * spriteSize, row * spriteSize, spriteSize, spriteSize);
         }
 
         return frames;
@@ -843,6 +868,69 @@ public class Game extends GameEngine{
         } else {
             drawImage(enemy.getCurrentImage(), enemy.x + enemy.width, enemy.y, -enemy.width, enemy.height);
         }
+    }
+
+    private void drawCat(CatEnemy cat) {
+        for (CatEnemy.Fireball fireball : cat.getFireballs()) {
+            drawCatFireball(fireball);
+        }
+
+        for (CatEnemy.HitParticle particle : cat.getHitParticles()) {
+            drawCatHitParticle(particle);
+        }
+
+        if (!cat.canCollide() && !cat.isFallingAfterDeath()) {
+            return;
+        }
+
+        Image image = cat.getCurrentImage();
+        if (image != null) {
+            if (cat.isFallingAfterDeath()) {
+                saveCurrentTransform();
+                translate(cat.x + cat.width / 2, cat.y + cat.height / 2);
+                rotate(180);
+                drawImage(image, -cat.width / 2, -cat.height / 2, cat.width, cat.height);
+                restoreLastTransform();
+                return;
+            }
+
+            if (cat.isFacingLeft()) {
+                drawImage(image, cat.x, cat.y, cat.width, cat.height);
+            } else {
+                drawImage(image, cat.x + cat.width, cat.y, -cat.width, cat.height);
+            }
+            return;
+        }
+
+        changeColor(new Color(130, 85, 55));
+        drawSolidRectangle(cat.x, cat.y, cat.width, cat.height);
+    }
+
+    private void drawCatFireball(CatEnemy.Fireball fireball) {
+        double centerX = fireball.x + fireball.width / 2.0;
+        double centerY = fireball.y + fireball.height / 2.0;
+
+        changeColor(new Color(255, 80, 25, 210));
+        drawSolidCircle(centerX, centerY, fireball.width / 2.0);
+        changeColor(new Color(255, 205, 70, 230));
+        drawSolidCircle(centerX, centerY, fireball.width / 3.0);
+        changeColor(new Color(255, 245, 150, 240));
+        drawSolidCircle(centerX, centerY, fireball.width / 6.0);
+    }
+
+    private void drawCatHitParticle(CatEnemy.HitParticle particle) {
+        int alpha = (int)(230 * particle.alphaRatio());
+        if (alpha <= 0) {
+            return;
+        }
+
+        changeColor(new Color(
+                particle.color.getRed(),
+                particle.color.getGreen(),
+                particle.color.getBlue(),
+                alpha
+        ));
+        drawSolidCircle(particle.x, particle.y, particle.radius);
     }
 
     private void drawWindVent(WindVent windVent) {
@@ -1211,6 +1299,16 @@ public class Game extends GameEngine{
             if (level.didEnemyDie()) {
                 playSound(enemyDeadSound);
             }
+
+            if (level.didCatAttack()) {
+                playSound(catAttackSound);
+            }
+
+            if (level.didCatDie()) {
+                playSound(catDeadSound);
+            }
+
+            awardCatPowerLevels();
 
             playerScores[0] += level.getEnemyKillsForPlayer(1);
             playerScores[1] += level.getEnemyKillsForPlayer(2);
@@ -1637,6 +1735,19 @@ public class Game extends GameEngine{
         }
 
         applyPlayerPowerLevels();
+    }
+
+    private void awardCatPowerLevels() {
+        if (level == null) {
+            return;
+        }
+
+        for (int playerNumber = 1; playerNumber <= 2; playerNumber++) {
+            int catKills = level.getCatKillsForPlayer(playerNumber);
+            for (int i = 0; i < catKills; i++) {
+                awardPowerLevel(playerNumber);
+            }
+        }
     }
 
     private void applyPlayerPowerLevels() {
@@ -2612,6 +2723,7 @@ public class Game extends GameEngine{
         Image malePlayerSheet = loadImage("resources/playerMale.png");
         Image femalePlayerSheet = loadImage("resources/playerFamale.png");
         Image enemySheet = loadImage("resources/enemy.png");
+        Image catSheet = loadImage("resources/cat.png");
         Image bossSheet = loadImage("resources/boss.png");
         platformImage = loadImage("resources/platform.png");
         Image gateSheet = loadImage("resources/gate.png");
@@ -2629,6 +2741,9 @@ public class Game extends GameEngine{
         femaleJump = slicePlayerRow(femalePlayerSheet, 2);
         enemyIdleFrames = sliceEnemyRow(enemySheet, 0);
         enemyLeftFrames = sliceEnemyRow(enemySheet, 1);
+        catWalkFrames = sliceCatRow(catSheet, 0);
+        catAttackFrames = sliceCatRow(catSheet, 1);
+        CatEnemy.setFrames(catWalkFrames, catAttackFrames);
         bossFrames = sliceBossFrames(bossSheet);
         elderlyFrames = sliceElderlyFrames(elderlySheet);
         buffFrames = sliceBuffFrames(buffSheet);
@@ -2679,6 +2794,8 @@ public class Game extends GameEngine{
         wowSound = loadAudio("resources/wow.wav");
         buffSound = loadAudio("resources/buff.wav");
         warnEagleSound = loadAudio("resources/warnEagle.wav");
+        catAttackSound = loadAudio("resources/catAttack.wav");
+        catDeadSound = loadAudio("resources/catDead.wav");
         menuBgm = loadAudio("resources/bgmStart.wav");
         levelBgms[1] = loadAudio("resources/bgm1.wav");
         levelBgms[2] = loadAudio("resources/bgm2.wav");
