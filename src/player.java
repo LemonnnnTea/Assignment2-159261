@@ -23,6 +23,7 @@ public class player {
     double jumpPower = DEFAULT_JUMP_POWER;
     double gravity = 1200;
     private int powerLevel = 1;
+    private double speedMultiplier = 1.0;
 
     boolean leftPressed = false;
     boolean rightPressed = false;
@@ -55,16 +56,25 @@ public class player {
             level = 1;
         }
 
-        if (level > 5) {
-            level = 5;
+        if (level > 10) {
+            level = 10;
         }
 
         powerLevel = level;
-        speed = DEFAULT_SPEED * (1.0 + (powerLevel - 1) * 0.01);
+        updateSpeed();
     }
 
     public int getPowerLevel() {
         return powerLevel;
+    }
+
+    public void setSpeedMultiplier(double multiplier) {
+        speedMultiplier = multiplier;
+        updateSpeed();
+    }
+
+    private void updateSpeed() {
+        speed = DEFAULT_SPEED * (1.0 + (powerLevel - 1) * 0.01) * speedMultiplier;
     }
 
     public player() {

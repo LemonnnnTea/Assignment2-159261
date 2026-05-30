@@ -140,9 +140,9 @@ public class FlyingKnife extends Trap {
             return false;
         }
 
-        return CollisionManager.rectCollision(
-                p.x, p.y, p.width, p.height,
-                x, y, width, height
+        return CollisionManager.obbCollision(
+                p.x, p.y, p.width, p.height, 0,
+                x, y, width, height, getDirectionAngleDegrees()
         );
     }
 
@@ -155,7 +155,7 @@ public class FlyingKnife extends Trap {
     }
 
     public double getDirectionAngleDegrees() {
-        return Math.toDegrees(Math.atan2(velocityY, velocityX));
+        return CollisionManager.angleFromVelocity(velocityX, velocityY);
     }
 
     @Override

@@ -36,6 +36,6 @@ public class PlayerKnife {
     }
 
     public double getDirectionAngleDegrees() {
-        return Math.toDegrees(Math.atan2(velocityY, velocityX));
+        return CollisionManager.angleFromVelocity(velocityX, velocityY);
     }
 }

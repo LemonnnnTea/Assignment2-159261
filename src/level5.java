@@ -230,6 +230,8 @@ public class level5 extends level {
     private boolean bossAttackMissileFired = false;
     private boolean bossExplosionActive = false;
     private double bossExplosionTimer = 0;
+    private double bossExplosionDuration = BOSS_EXPLOSION_DURATION;
+    private boolean bossDeathSoundRequested = false;
     private boolean enemyDiedThisFrame = false;
     private int enemyKillsThisFrame = 0;
     private int lifeLossesThisFrame = 0;
@@ -296,6 +298,7 @@ public class level5 extends level {
         bossAttackMissileFired = false;
         bossExplosionActive = false;
         bossExplosionTimer = 0;
+        bossDeathSoundRequested = false;
 
         supplyItems.clear();
         knives.clear();
@@ -539,7 +542,8 @@ public class level5 extends level {
         }
 
         bossExplosionActive = true;
-        bossExplosionTimer = BOSS_EXPLOSION_DURATION;
+        bossExplosionTimer = bossExplosionDuration;
+        bossDeathSoundRequested = true;
         bossAttackAnimating = false;
         bossAttackAnimationTimer = 0;
         bossAttackFrame = 0;
@@ -834,7 +838,7 @@ public class level5 extends level {
             for (int j = flyingEnemies.size() - 1; j >= 0; j--) {
                 FlyingEnemy enemy = flyingEnemies.get(j);
 
-                if (rectsOverlap(knife.x, knife.y, knife.width, knife.height, enemy.x, enemy.y, enemy.width, enemy.height)) {
+                if (shotOverlapsRect(knife, enemy.x, enemy.y, enemy.width, enemy.height)) {
                     flyingEnemies.remove(j);
                     knives.remove(i);
                     markEnemyKilled();
@@ -847,7 +851,7 @@ public class level5 extends level {
                 continue;
             }
 
-            if (rectsOverlap(knife.x, knife.y, knife.width, knife.height, BOSS_X, BOSS_Y, BOSS_W, BOSS_H)) {
+            if (shotOverlapsRect(knife, BOSS_X, BOSS_Y, BOSS_W, BOSS_H)) {
                 bossHp -= knife.damage;
                 knives.remove(i);
             }
@@ -862,8 +866,7 @@ public class level5 extends level {
             for (int j = bossMissiles.size() - 1; j >= 0; j--) {
                 BossMissile bossMissile = bossMissiles.get(j);
 
-                if (rectsOverlap(missile.x, missile.y, missile.width, missile.height,
-                        bossMissile.x, bossMissile.y, bossMissile.width, bossMissile.height)) {
+                if (shotOverlapsBossMissile(missile, bossMissile)) {
                     bossMissiles.remove(j);
                     playerMissiles.remove(i);
                     removed = true;
@@ -878,7 +881,7 @@ public class level5 extends level {
             for (int j = flyingEnemies.size() - 1; j >= 0; j--) {
                 FlyingEnemy enemy = flyingEnemies.get(j);
 
-                if (rectsOverlap(missile.x, missile.y, missile.width, missile.height, enemy.x, enemy.y, enemy.width, enemy.height)) {
+                if (shotOverlapsRect(missile, enemy.x, enemy.y, enemy.width, enemy.height)) {
                     flyingEnemies.remove(j);
                     playerMissiles.remove(i);
                     markEnemyKilled();
@@ -891,7 +894,7 @@ public class level5 extends level {
                 continue;
             }
 
-            if (rectsOverlap(missile.x, missile.y, missile.width, missile.height, BOSS_X, BOSS_Y, BOSS_W, BOSS_H)) {
+            if (shotOverlapsRect(missile, BOSS_X, BOSS_Y, BOSS_W, BOSS_H)) {
                 bossHp -= missile.damage;
                 playerMissiles.remove(i);
             }
@@ -916,7 +919,7 @@ public class level5 extends level {
         for (int i = bossMissiles.size() - 1; i >= 0; i--) {
             BossMissile missile = bossMissiles.get(i);
 
-            if (rectsOverlap(BATTLE_X, battleY, 50, 50, missile.x, missile.y, missile.width, missile.height)) {
+            if (bossMissileOverlapsRect(missile, BATTLE_X, battleY, 50, 50)) {
                 bossMissiles.remove(i);
                 damageBattlePig();
                 return;
@@ -930,7 +933,7 @@ public class level5 extends level {
                 continue;
             }
 
-            if (rectsOverlap(BATTLE_X, battleY, 50, 50, missile.x, missile.y, missile.width, missile.height)) {
+            if (shotOverlapsRect(missile, BATTLE_X, battleY, 50, 50)) {
                 cursedMissiles.remove(i);
                 damageBattlePig();
                 return;
@@ -965,11 +968,6 @@ public class level5 extends level {
 
     private void punishGreedyPig() {
         greedyStunTimer = 2.0;
-        if (!missileInventory.isEmpty()) {
-            missileInventory.remove(missileInventory.size() - 1);
-        }
-
-        missileAmmo = missileInventory.size();
         resetGreedyPig();
     }
 
@@ -1263,7 +1261,20 @@ public class level5 extends level {
             return 0;
         }
 
-        return 1.0 - bossExplosionTimer / BOSS_EXPLOSION_DURATION;
+        return 1.0 - bossExplosionTimer / bossExplosionDuration;
+    }
+
+    void setBossExplosionDuration(double duration) {
+        bossExplosionDuration = Math.max(BOSS_EXPLOSION_DURATION, duration);
+    }
+
+    boolean consumeBossDeathSoundRequest() {
+        if (!bossDeathSoundRequested) {
+            return false;
+        }
+
+        bossDeathSoundRequested = false;
+        return true;
     }
 
     double getStage3IntroTimer() {
@@ -1340,11 +1351,54 @@ public class level5 extends level {
         return playerNumber == 2 ? enemyKillsThisFrame : 0;
     }
 
+    private boolean shotOverlapsRect(Shot shot, double x, double y, double width, double height) {
+        return CollisionManager.obbCollision(
+                shot.x, shot.y, shot.width, shot.height, shotCollisionAngle(shot),
+                x, y, width, height, 0
+        );
+    }
+
+    private boolean shotOverlapsBossMissile(Shot shot, BossMissile missile) {
+        return CollisionManager.obbCollision(
+                shot.x, shot.y, shot.width, shot.height, shotCollisionAngle(shot),
+                missile.x, missile.y, missile.width, missile.height, bossMissileCollisionAngle(missile)
+        );
+    }
+
+    private boolean bossMissileOverlapsRect(BossMissile missile, double x, double y, double width, double height) {
+        return CollisionManager.obbCollision(
+                missile.x, missile.y, missile.width, missile.height, bossMissileCollisionAngle(missile),
+                x, y, width, height, 0
+        );
+    }
+
+    private double shotCollisionAngle(Shot shot) {
+        if (!shot.missile) {
+            return 0;
+        }
+
+        return missileCollisionAngle(shot.vx, shot.vy);
+    }
+
+    private double bossMissileCollisionAngle(BossMissile missile) {
+        return missileCollisionAngle(missile.vx, missile.vy);
+    }
+
+    private double missileCollisionAngle(double vx, double vy) {
+        double speed = Math.sqrt(vx * vx + vy * vy);
+
+        if (speed < 0.001) {
+            return 0;
+        }
+
+        double dirX = vx / speed;
+        double dirY = vy / speed;
+
+        return Math.toDegrees(Math.atan2(-dirX, dirY));
+    }
+
     private boolean rectsOverlap(double x1, double y1, double w1, double h1,
                                  double x2, double y2, double w2, double h2) {
-        return x1 < x2 + w2 &&
-                x1 + w1 > x2 &&
-                y1 < y2 + h2 &&
-                y1 + h1 > y2;
+        return CollisionManager.rectCollision(x1, y1, w1, h1, x2, y2, w2, h2);
     }
 }

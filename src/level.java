@@ -277,9 +277,9 @@ public abstract class level {
                 continue;
             }
 
-            if (!CollisionManager.rectCollision(
-                    knife.x, knife.y, knife.width, knife.height,
-                    enemy.x, enemy.y, enemy.width, enemy.height
+            if (!CollisionManager.obbCollision(
+                    knife.x, knife.y, knife.width, knife.height, knife.getDirectionAngleDegrees(),
+                    enemy.x, enemy.y, enemy.width, enemy.height, 0
             )) {
                 continue;
             }

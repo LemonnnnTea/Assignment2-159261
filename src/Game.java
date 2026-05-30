@@ -1,6 +1,8 @@
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
+import java.awt.geom.Rectangle2D;
+import java.util.ArrayList;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 import javax.sound.sampled.FloatControl;
@@ -13,8 +15,22 @@ public class Game extends GameEngine{
     private static final double MAX_PHYSICS_DT = 1.0 / 30.0;
     private static final int GATE_WIN_SCORE = 10;
     private static final int MIN_POWER_LEVEL = 1;
-    private static final int MAX_POWER_LEVEL = 5;
+    private static final int MAX_POWER_LEVEL = 10;
+    private static final int BUFF_ITEM_SIZE = 50;
+    private static final int FRONT_LEVEL_UP_BUFF_FRAME = 0;
+    private static final int FRONT_SPEED_BUFF_FRAME = 1;
+    private static final int BOSS_SHIELD_BUFF_FRAME = 2;
+    private static final int BOSS_RAGE_BUFF_FRAME = 3;
+    private static final int BOSS_MISSILE_BUFF_FRAME = 4;
     private static final float BGM_VOLUME_OFFSET = -6.0206f;
+    private static final double LEVEL_OBJECTIVE_DURATION = 1.0;
+    private static final double ELDERLY_X = 220;
+    private static final double ELDERLY_Y = 880;
+    private static final double ELDERLY_INTERACTION_LOCK_TIME = 1.0;
+    private static final int ELDERLY_P1_KEY = KeyEvent.VK_E;
+    private static final int ELDERLY_P2_KEY = KeyEvent.VK_SHIFT;
+    private static final String ELDERLY_P1_KEY_TEXT = "E";
+    private static final String ELDERLY_P2_KEY_TEXT = "SHIFT";
 
     private static final double MENU_BUTTON_X = 1320;
     private static final double MENU_BUTTON_Y = 400;
@@ -87,9 +103,15 @@ public class Game extends GameEngine{
     AudioClip winSound;
     AudioClip transSound;
     AudioClip eatSound;
+    AudioClip eatDoorSound;
     AudioClip enemyDeadSound;
+    AudioClip eagleDeadSound;
+    AudioClip bossDeadSound;
     AudioClip missileLockSound;
     AudioClip stage3Sound;
+    AudioClip wowSound;
+    AudioClip buffSound;
+    AudioClip warnEagleSound;
     AudioClip menuBgm;
     AudioClip[] levelBgms = new AudioClip[6];
     AudioClip currentBgm;
@@ -106,14 +128,22 @@ public class Game extends GameEngine{
     boolean pauseMenuHover = false;
 
     double levelCompleteTimer = 0;
+    double levelElapsedTime = 0;
+    double levelObjectiveTimer = 0;
     boolean showAllLevelsComplete = false;
     double allLevelsCompleteTimer = 0;
 
     int maxUnlockedLevel = LAST_IMPLEMENTED_LEVEL;
     int[] playerScores = new int[2];
     int[] playerPowerLevels = {MIN_POWER_LEVEL, MIN_POWER_LEVEL};
+    double[] levelSpeedMultipliers = {1.0, 1.0};
+    int[] levelPowerBuffDeltas = new int[2];
+    boolean[] levelControlsReversed = new boolean[2];
+    boolean[] elderlyInteracted = new boolean[2];
+    double elderlyInteractionLockTimer = 0;
     int[] levelDeaths = new int[2];
     int winningPlayer = 0;
+    ArrayList<LevelBuffItem> levelBuffItems = new ArrayList<>();
 
     class LevelButton {
         int levelNumber;
@@ -134,6 +164,25 @@ public class Game extends GameEngine{
         }
     }
 
+    enum LevelBuffType {
+        LEVEL_UP,
+        SPEED_UP
+    }
+
+    class LevelBuffItem {
+        LevelBuffType type;
+        double x;
+        double y;
+        int frameIndex;
+
+        LevelBuffItem(LevelBuffType type, double x, double y, int frameIndex) {
+            this.type = type;
+            this.x = x;
+            this.y = y;
+            this.frameIndex = frameIndex;
+        }
+    }
+
     LevelButton[] levelButtons;
     int hoveredLevelButton = -1;
 
@@ -142,7 +191,11 @@ public class Game extends GameEngine{
     Image[] sawFrames;
     Image pitImage;
     Image knifeImage;
+    Image carrotImage;
     Image missileImage;
+    Image[] elderlyFrames;
+    Image[] buffFrames;
+    Image[] eagleFrames;
     Image[] bossFrames;
     Image[] portalImage;
     Image[] gateImage;
@@ -155,6 +208,8 @@ public class Game extends GameEngine{
     Image[] femaleJump;
     Image[] enemyIdleFrames;
     Image[] enemyLeftFrames;
+    ElderlyNpc elderlyNpc;
+    Eagle eagle;
 
     int characterChoice = 0;
     int hoveredCharacterChoice = -1;
@@ -167,7 +222,7 @@ public class Game extends GameEngine{
     boolean[] fakeGateDeathSequenceActive = new boolean[2];
     boolean[] fakeGateDeathHidePlayer = new boolean[2];
     double[] fakeGateDeathSequenceTimer = new double[2];
-    int[] fakeGateDeathSequenceDeadPlays = new int[2];
+    int[] fakeGateDeathSequenceSoundIndex = new int[2];
 
     public static void main(String[] args) {
         createGame(new Game(), 60);
@@ -367,6 +422,59 @@ public class Game extends GameEngine{
         return frames;
     }
 
+    private Image[] sliceElderlyFrames(Image sheet) {
+        if (sheet == null) {
+            return new Image[0];
+        }
+
+        int spriteSize = 100;
+        Image[] frames = new Image[5];
+
+        for (int i = 0; i < frames.length; i++) {
+            frames[i] = subImage(sheet, i * spriteSize, 0, spriteSize, spriteSize);
+        }
+
+        return frames;
+    }
+
+    private Image[] sliceBuffFrames(Image sheet) {
+        if (sheet == null) {
+            return new Image[0];
+        }
+
+        int spriteSize = 100;
+        Image[] frames = new Image[5];
+
+        for (int i = 0; i < frames.length; i++) {
+            frames[i] = subImage(sheet, i * spriteSize, 0, spriteSize, spriteSize);
+        }
+
+        return frames;
+    }
+
+    private Image[] sliceEagleFrames(Image sheet) {
+        if (sheet == null) {
+            return new Image[0];
+        }
+
+        int spriteSize = 100;
+        Image[] frames = new Image[5];
+
+        for (int i = 0; i < frames.length; i++) {
+            frames[i] = subImage(sheet, i * spriteSize, 0, spriteSize, spriteSize);
+        }
+
+        return frames;
+    }
+
+    private Image getBuffFrame(int index) {
+        if (buffFrames == null || index < 0 || index >= buffFrames.length) {
+            return null;
+        }
+
+        return buffFrames[index];
+    }
+
     private void applyCharacterSelection() {
         if (player[0] == null || player[1] == null) {
             return;
@@ -430,11 +538,11 @@ public class Game extends GameEngine{
         drawText(610, 390, "This is a two-player platform game.", "Arial", 24);
         drawText(610, 435, "The first pig to enter the true gate scores 10.", "Arial", 24);
         drawText(610, 480, "Use portals and timing to race past hazards.", "Arial", 24);
-        drawText(610, 525, "Player 1 uses W A D and throws knives with F.", "Arial", 24);
-        drawText(610, 570, "Player 2 uses arrow keys and throws knives with Enter.", "Arial", 24);
-        drawText(610, 615, "In levels 1-4, each winner gains +1 Level, up to Level 5.", "Arial", 24);
-        drawText(610, 660, "Each Level grants +1% speed and one more knife slot.", "Arial", 24);
-        drawText(610, 705, "Knives defeat enemies, then return when used or off-screen.", "Arial", 24);
+        drawText(610, 525, "Player 1 uses W A D, fires carrots with F, talks with E.", "Arial", 24);
+        drawText(610, 570, "Player 2 uses arrow keys, fires carrots with Enter, talks with Shift.", "Arial", 24);
+        drawText(610, 615, "In levels 1-4, each winner gains +1 Level, up to Level " + MAX_POWER_LEVEL + ".", "Arial", 24);
+        drawText(610, 660, "Each Level grants +1% speed and one more carrot slot.", "Arial", 24);
+        drawText(610, 705, "Carrots defeat enemies, then return when used or off-screen.", "Arial", 24);
 
         changeColor(COLOR_ACCENT_2);
         drawText(610, 790, closeText, "Arial", 24);
@@ -554,6 +662,108 @@ public class Game extends GameEngine{
         rotate(knife.getDirectionAngleDegrees());
         drawImage(knife.image, -knife.width / 2, -knife.height / 2, knife.width, knife.height);
         restoreLastTransform();
+    }
+
+    private void drawLevelBuffItems() {
+        if (currentLevel < 1 || currentLevel > 4) {
+            return;
+        }
+
+        for (LevelBuffItem item : levelBuffItems) {
+            Image image = getBuffFrame(item.frameIndex);
+            if (image != null) {
+                drawImage(image, item.x, item.y, BUFF_ITEM_SIZE, BUFF_ITEM_SIZE);
+            } else {
+                Color fallback = item.type == LevelBuffType.LEVEL_UP ? COLOR_ACCENT_2 : COLOR_ACCENT;
+                changeColor(fallback);
+                drawSolidRectangle(item.x + 7, item.y + 7, BUFF_ITEM_SIZE - 14, BUFF_ITEM_SIZE - 14);
+                changeColor(new Color(255, 255, 255, 220));
+                drawRectangle(item.x + 7, item.y + 7, BUFF_ITEM_SIZE - 14, BUFF_ITEM_SIZE - 14, 2);
+            }
+        }
+    }
+
+    private void drawEagle() {
+        if (eagle == null || currentLevel < 3 || currentLevel > 4) {
+            return;
+        }
+
+        Image currentFrame = eagle.getCurrentImage();
+        if (currentFrame != null) {
+            if (eagle.isFacingRight()) {
+                drawImage(currentFrame, eagle.x, eagle.y, Eagle.SIZE, Eagle.SIZE);
+            } else {
+                drawImage(currentFrame, eagle.x + Eagle.SIZE, eagle.y, -Eagle.SIZE, Eagle.SIZE);
+            }
+        } else {
+            changeColor(new Color(120, 95, 55));
+            drawSolidRectangle(eagle.x, eagle.y, Eagle.SIZE, Eagle.SIZE);
+        }
+    }
+
+    private void drawElderlyNpc() {
+        if (elderlyNpc == null || currentLevel < 1 || currentLevel > 4) {
+            return;
+        }
+
+        Image currentFrame = elderlyNpc.getCurrentImage();
+        if (currentFrame != null) {
+            drawImage(currentFrame, elderlyNpc.x, elderlyNpc.y, ElderlyNpc.SIZE, ElderlyNpc.SIZE);
+        } else {
+            changeColor(new Color(210, 185, 135));
+            drawSolidRectangle(elderlyNpc.x, elderlyNpc.y, ElderlyNpc.SIZE, ElderlyNpc.SIZE);
+        }
+
+        if (elderlyNpc.hasMessage()) {
+            drawElderlyBubble(elderlyNpc.getMessage(), 360, COLOR_ACCENT_2);
+            return;
+        }
+
+        int promptPlayer = nearestElderlyPromptPlayer();
+        if (promptPlayer != 0) {
+            drawElderlyBubble(elderlyPromptText(promptPlayer), 260, COLOR_ACCENT);
+        }
+    }
+
+    private void drawElderlyBubble(String text, double width, Color borderColor) {
+        double bubbleH = 46;
+        double bubbleX = elderlyNpc.x + ElderlyNpc.SIZE / 2.0 - width / 2.0;
+        double bubbleY = elderlyNpc.y - 56;
+
+        fillRoundRect(bubbleX, bubbleY, width, bubbleH, 8, new Color(12, 18, 28, 225));
+        drawRoundRect(bubbleX, bubbleY, width, bubbleH, 8, 2, borderColor);
+        drawCenteredText(bubbleX, bubbleY + 31, width, text, "Arial", 20, true, COLOR_TEXT);
+    }
+
+    private int nearestElderlyPromptPlayer() {
+        if (elderlyNpc == null || elderlyInteractionLockTimer > 0) {
+            return 0;
+        }
+
+        int nearestPlayer = 0;
+        double nearestDistance = Double.MAX_VALUE;
+
+        for (int i = 0; i < player.length; i++) {
+            if (elderlyInteracted[i] || !elderlyNpc.canInteract(player[i])) {
+                continue;
+            }
+
+            double distance = elderlyNpc.distanceTo(player[i]);
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearestPlayer = i + 1;
+            }
+        }
+
+        return nearestPlayer;
+    }
+
+    private String elderlyPromptText(int playerNumber) {
+        if (playerNumber == 1) {
+            return "P1 press " + ELDERLY_P1_KEY_TEXT;
+        }
+
+        return "P2 press " + ELDERLY_P2_KEY_TEXT;
     }
 
     private void drawFakeGateTrap(FakeGateTrap fakeGate) {
@@ -763,8 +973,8 @@ public class Game extends GameEngine{
     }
 
     private void drawInGameHud() {
-        fillRoundRect(36, 32, 520, 70, 8, new Color(12, 18, 28, 190));
-        drawRoundRect(36, 32, 520, 70, 8, 2, new Color(105, 126, 160));
+        fillRoundRect(36, 32, 690, 70, 8, new Color(12, 18, 28, 190));
+        drawRoundRect(36, 32, 690, 70, 8, 2, new Color(105, 126, 160));
 
         changeColor(COLOR_TEXT);
         drawBoldText(62, 77, "Level " + currentLevel, "Arial", 26);
@@ -773,8 +983,18 @@ public class Game extends GameEngine{
         drawText(186, 77, "Score  P1: " + playerScores[0] + "    P2: " + playerScores[1], "Arial", 22);
 
         if (currentLevel >= 1 && currentLevel <= 4) {
+            drawText(486, 77, "Time " + formatLevelTime(levelElapsedTime), "Arial", 22);
             drawPowerLevelHud();
         }
+    }
+
+    private String formatLevelTime(double elapsedTime) {
+        int totalTenths = (int)Math.floor(elapsedTime * 10);
+        int minutes = totalTenths / 600;
+        int seconds = (totalTenths / 10) % 60;
+        int tenths = totalTenths % 10;
+
+        return String.format("%02d:%02d.%d", minutes, seconds, tenths);
     }
 
     private void drawPowerLevelHud() {
@@ -792,7 +1012,7 @@ public class Game extends GameEngine{
 
     private void drawPowerHudPlayer(double x, double y, int playerNumber, Color color) {
         int playerIndex = playerNumber - 1;
-        int powerLevel = playerPowerLevels[playerIndex];
+        int powerLevel = effectivePowerLevel(playerIndex);
         int maxKnives = getMaxKnivesForPowerLevel(powerLevel);
         int activeKnives = 0;
 
@@ -803,7 +1023,7 @@ public class Game extends GameEngine{
         changeColor(color);
         drawBoldText(x, y, "P" + playerNumber + " Level " + powerLevel, "Arial", 22);
         changeColor(COLOR_MUTED_TEXT);
-        drawText(x + 138, y, "Knives " + activeKnives + "/" + maxKnives, "Arial", 20);
+        drawText(x + 138, y, "Carrots " + activeKnives + "/" + maxKnives, "Arial", 20);
     }
 
     private void drawLevel4Message() {
@@ -822,6 +1042,19 @@ public class Game extends GameEngine{
         drawCenteredText(690, 158, 540, message, "Dialog", 32, true, COLOR_ACCENT_2);
     }
 
+    private void drawLevelObjectiveOverlay() {
+        if (levelObjectiveTimer <= 0 || currentLevel < 1 || currentLevel > 5) {
+            return;
+        }
+
+        String objective = currentLevel == 5 ? "Defeat the boss" : "Find the true gate";
+
+        drawScrim();
+        drawPanel(560, 360, 800, 300);
+        drawCenteredText(560, 455, 800, "OBJECTIVE", "Arial", 44, true, COLOR_ACCENT_2);
+        drawCenteredText(560, 535, 800, objective, "Arial", 36, true, COLOR_TEXT);
+    }
+
     @Override
     public void update(double dt) {
         dt = Math.min(dt, MAX_PHYSICS_DT);
@@ -831,11 +1064,27 @@ public class Game extends GameEngine{
             updateMissileLockSound(false, dt);
         }
 
+        if (currentLevel >= 1 && currentLevel <= 5 && levelObjectiveTimer > 0 && !gameOver && !levelComplete && !gamePaused) {
+            levelObjectiveTimer = Math.max(0, levelObjectiveTimer - dt);
+            return;
+        }
+
         if (currentLevel >= 1 && currentLevel <= 5 && !gameOver && !levelComplete && !gamePaused) {
             boolean player1WasDead = player[0].dead;
             boolean player2WasDead = player[1].dead;
 
+            if (currentLevel <= 4) {
+                levelElapsedTime += dt;
+                updateElderlyNpc(dt);
+            }
+
             level.update(dt);
+
+            updateEagle(dt);
+
+            if (currentLevel <= 4) {
+                handleLevelBuffItems();
+            }
 
             if (level.didTeleport()) {
                 playSound(transSound);
@@ -858,6 +1107,10 @@ public class Game extends GameEngine{
 
                 if (bossLevel.consumeStage3SoundRequest()) {
                     playSound(stage3Sound);
+                }
+
+                if (bossLevel.consumeBossDeathSoundRequest()) {
+                    playSound(bossDeadSound);
                 }
 
                 if (bossLevel.isBossFightGameOver()) {
@@ -962,6 +1215,246 @@ public class Game extends GameEngine{
         winningPlayer = 0;
     }
 
+    private void startLevelObjectivePause() {
+        if (currentLevel >= 1 && currentLevel <= 5) {
+            levelObjectiveTimer = LEVEL_OBJECTIVE_DURATION;
+        } else {
+            levelObjectiveTimer = 0;
+        }
+    }
+
+    private void resetLevelBuffs() {
+        for (int i = 0; i < player.length; i++) {
+            levelSpeedMultipliers[i] = 1.0;
+            levelPowerBuffDeltas[i] = 0;
+            levelControlsReversed[i] = false;
+            elderlyInteracted[i] = false;
+        }
+
+        elderlyInteractionLockTimer = 0;
+        elderlyNpc = null;
+        eagle = null;
+        levelBuffItems.clear();
+        applyPlayerPowerLevels();
+    }
+
+    private void setupElderlyNpc() {
+        if (currentLevel >= 1 && currentLevel <= 4) {
+            elderlyNpc = new ElderlyNpc(ELDERLY_X, ELDERLY_Y, elderlyFrames);
+        } else {
+            elderlyNpc = null;
+        }
+    }
+
+    private void setupEagle() {
+        if (currentLevel == 3 || currentLevel == 4) {
+            eagle = new Eagle(935, eagleFrames);
+        } else {
+            eagle = null;
+        }
+    }
+
+    private void setupLevelBuffItems() {
+        levelBuffItems.clear();
+
+        if (currentLevel < 1 || currentLevel > 4 || level == null) {
+            return;
+        }
+
+        ArrayList<Rectangle2D.Double> reserved = new ArrayList<>();
+        addLevelBuffItem(LevelBuffType.LEVEL_UP, FRONT_LEVEL_UP_BUFF_FRAME, 0.35, reserved);
+        addLevelBuffItem(LevelBuffType.SPEED_UP, FRONT_SPEED_BUFF_FRAME, 0.65, reserved);
+    }
+
+    private void addLevelBuffItem(LevelBuffType type, int frameIndex, double preferredRatio,
+                                  ArrayList<Rectangle2D.Double> reserved) {
+        ArrayList<Rectangle2D.Double> spots = collectLevelBuffSpots(reserved);
+        if (spots.isEmpty()) {
+            return;
+        }
+
+        int index = (int)Math.round((spots.size() - 1) * preferredRatio);
+        Rectangle2D.Double spot = spots.get(index);
+        levelBuffItems.add(new LevelBuffItem(type, spot.x, spot.y, frameIndex));
+        reserved.add(spot);
+    }
+
+    private ArrayList<Rectangle2D.Double> collectLevelBuffSpots(ArrayList<Rectangle2D.Double> reserved) {
+        ArrayList<Rectangle2D.Double> spots = new ArrayList<>();
+
+        for (Platform platform : level.getPlatforms()) {
+            if (platform instanceof BreakawayPitPlatform || !platform.isSolid()) {
+                continue;
+            }
+
+            for (Rectangle2D.Double bounds : platform.getCollisionBounds()) {
+                double candidateY = bounds.y - BUFF_ITEM_SIZE;
+                if (candidateY < 0 || bounds.width < BUFF_ITEM_SIZE) {
+                    continue;
+                }
+
+                double maxX = bounds.x + bounds.width - BUFF_ITEM_SIZE;
+                for (double candidateX = bounds.x; candidateX <= maxX + 0.1; candidateX += BUFF_ITEM_SIZE) {
+                    if (isLevelBuffSpotSafe(candidateX, candidateY, reserved)) {
+                        spots.add(new Rectangle2D.Double(candidateX, candidateY, BUFF_ITEM_SIZE, BUFF_ITEM_SIZE));
+                    }
+                }
+            }
+        }
+
+        return spots;
+    }
+
+    private boolean isLevelBuffSpotSafe(double x, double y, ArrayList<Rectangle2D.Double> reserved) {
+        for (Rectangle2D.Double spot : reserved) {
+            if (rectanglesOverlap(x, y, BUFF_ITEM_SIZE, BUFF_ITEM_SIZE, spot.x, spot.y, spot.width, spot.height)) {
+                return false;
+            }
+        }
+
+        for (Trap trap : level.getTraps()) {
+            if (trap.isActive() && rectanglesOverlap(x, y, BUFF_ITEM_SIZE, BUFF_ITEM_SIZE,
+                    trap.x, trap.y, trap.width, trap.height)) {
+                return false;
+            }
+        }
+
+        Gate gate = level.getGate();
+        if (gate != null && rectanglesOverlap(x, y, BUFF_ITEM_SIZE, BUFF_ITEM_SIZE,
+                gate.x, gate.y, gate.width, gate.height)) {
+            return false;
+        }
+
+        for (Portal portal : level.getPortals()) {
+            if (rectanglesOverlap(x, y, BUFF_ITEM_SIZE, BUFF_ITEM_SIZE,
+                    portal.x, portal.y, portal.width, portal.height)) {
+                return false;
+            }
+        }
+
+        for (Enemy enemy : level.getEnemies()) {
+            if (enemy.isActive() && rectanglesOverlap(x, y, BUFF_ITEM_SIZE, BUFF_ITEM_SIZE,
+                    enemy.x, enemy.y, enemy.width, enemy.height)) {
+                return false;
+            }
+        }
+
+        for (player p : player) {
+            if (p != null && rectanglesOverlap(x, y, BUFF_ITEM_SIZE, BUFF_ITEM_SIZE, p.x, p.y, p.width, p.height)) {
+                return false;
+            }
+        }
+
+        return elderlyNpc == null || !rectanglesOverlap(x, y, BUFF_ITEM_SIZE, BUFF_ITEM_SIZE,
+                elderlyNpc.x, elderlyNpc.y, ElderlyNpc.SIZE, ElderlyNpc.SIZE);
+    }
+
+    private boolean rectanglesOverlap(double x1, double y1, double w1, double h1,
+                                      double x2, double y2, double w2, double h2) {
+        return x1 < x2 + w2 &&
+                x1 + w1 > x2 &&
+                y1 < y2 + h2 &&
+                y1 + h1 > y2;
+    }
+
+    private void updateElderlyNpc(double dt) {
+        if (elderlyInteractionLockTimer > 0) {
+            elderlyInteractionLockTimer = Math.max(0, elderlyInteractionLockTimer - dt);
+        }
+
+        if (elderlyNpc != null) {
+            elderlyNpc.update(dt);
+        }
+    }
+
+    private void updateEagle(double dt) {
+        if (eagle == null || currentLevel < 3 || currentLevel > 4) {
+            return;
+        }
+
+        if (handleEagleKnifeHits()) {
+            return;
+        }
+
+        eagle.update(dt, player, level);
+
+        if (handleEagleKnifeHits()) {
+            return;
+        }
+
+        if (eagle.consumeWarnRequest()) {
+            playSound(warnEagleSound);
+        }
+    }
+
+    private boolean handleEagleKnifeHits() {
+        if (eagle == null || level == null) {
+            return false;
+        }
+
+        ArrayList<PlayerKnife> knives = level.getPlayerKnives();
+        for (int i = knives.size() - 1; i >= 0; i--) {
+            if (eagle.isHitBy(knives.get(i))) {
+                knives.remove(i);
+                eagle = null;
+                playSound(eagleDeadSound);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void handleLevelBuffItems() {
+        if (currentLevel < 1 || currentLevel > 4 || levelBuffItems.isEmpty()) {
+            return;
+        }
+
+        for (int i = levelBuffItems.size() - 1; i >= 0; i--) {
+            LevelBuffItem item = levelBuffItems.get(i);
+            int collectorIndex = getLevelBuffCollectorIndex(item);
+
+            if (collectorIndex >= 0) {
+                applyLevelBuffItem(item, collectorIndex);
+                levelBuffItems.remove(i);
+                playSound(buffSound);
+            }
+        }
+    }
+
+    private int getLevelBuffCollectorIndex(LevelBuffItem item) {
+        for (int i = 0; i < player.length; i++) {
+            if (!canCollectLevelBuff(player[i])) {
+                continue;
+            }
+
+            if (CollisionManager.rectCollision(
+                    player[i].x, player[i].y, player[i].width, player[i].height,
+                    item.x, item.y, BUFF_ITEM_SIZE, BUFF_ITEM_SIZE
+            )) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private boolean canCollectLevelBuff(player p) {
+        return p != null && !p.dead && !p.reachedGate && !p.trappedInFakeGate;
+    }
+
+    private void applyLevelBuffItem(LevelBuffItem item, int playerIndex) {
+        if (item.type == LevelBuffType.LEVEL_UP) {
+            if (playerPowerLevels[playerIndex] < MAX_POWER_LEVEL) {
+                playerPowerLevels[playerIndex]++;
+            }
+        } else if (item.type == LevelBuffType.SPEED_UP) {
+            levelSpeedMultipliers[playerIndex] = 1.5;
+        }
+
+        applyPlayerPowerLevels();
+    }
+
     private void awardPowerLevel(int playerNumber) {
         if (playerNumber < 1 || playerNumber > 2) {
             return;
@@ -978,9 +1471,24 @@ public class Game extends GameEngine{
     private void applyPlayerPowerLevels() {
         for (int i = 0; i < player.length; i++) {
             if (player[i] != null) {
-                player[i].setPowerLevel(playerPowerLevels[i]);
+                player[i].setPowerLevel(effectivePowerLevel(i));
+                player[i].setSpeedMultiplier(levelSpeedMultipliers[i]);
             }
         }
+    }
+
+    private int effectivePowerLevel(int playerIndex) {
+        int level = playerPowerLevels[playerIndex] + levelPowerBuffDeltas[playerIndex];
+
+        if (level < MIN_POWER_LEVEL) {
+            level = MIN_POWER_LEVEL;
+        }
+
+        if (level > MAX_POWER_LEVEL) {
+            level = MAX_POWER_LEVEL;
+        }
+
+        return level;
     }
 
     private int getMaxKnivesForPowerLevel(int powerLevel) {
@@ -996,18 +1504,105 @@ public class Game extends GameEngine{
             return;
         }
 
-        level.firePlayerKnife(playerNumber, knifeImage, playerPowerLevels[playerNumber - 1]);
+        level.firePlayerKnife(playerNumber, carrotImage, effectivePowerLevel(playerNumber - 1));
+    }
+
+    private boolean tryInteractWithElderly(int playerNumber) {
+        if (currentLevel < 1 || currentLevel > 4 || elderlyNpc == null) {
+            return false;
+        }
+
+        int playerIndex = playerNumber - 1;
+        if (playerIndex < 0 || playerIndex >= player.length || !elderlyNpc.canInteract(player[playerIndex])) {
+            return false;
+        }
+
+        if (elderlyInteractionLockTimer > 0 || elderlyInteracted[playerIndex]) {
+            return true;
+        }
+
+        elderlyInteracted[playerIndex] = true;
+        elderlyInteractionLockTimer = ELDERLY_INTERACTION_LOCK_TIME;
+        playSound(wowSound);
+
+        String buffText = applyRandomElderlyBuff(playerIndex);
+        elderlyNpc.showMessage("P" + playerNumber + " " + buffText);
+        return true;
+    }
+
+    private String applyRandomElderlyBuff(int playerIndex) {
+        int buff = (int)(Math.random() * 5);
+
+        if (buff == 0) {
+            levelSpeedMultipliers[playerIndex] = 1.5;
+            applyPlayerPowerLevels();
+            return "Speed +50%";
+        }
+
+        if (buff == 1) {
+            levelSpeedMultipliers[playerIndex] = 0.5;
+            applyPlayerPowerLevels();
+            return "Speed -50%";
+        }
+
+        if (buff == 2) {
+            levelControlsReversed[playerIndex] = true;
+            clearHorizontalInput(playerIndex);
+            return "Controls reversed";
+        }
+
+        if (buff == 3) {
+            if (effectivePowerLevel(playerIndex) < MAX_POWER_LEVEL) {
+                levelPowerBuffDeltas[playerIndex]++;
+                applyPlayerPowerLevels();
+                return "Level +1";
+            }
+
+            applyPlayerPowerLevels();
+            return "Level stays " + MAX_POWER_LEVEL;
+        }
+
+        if (effectivePowerLevel(playerIndex) > MIN_POWER_LEVEL) {
+            levelPowerBuffDeltas[playerIndex]--;
+            applyPlayerPowerLevels();
+            return "Level -1";
+        }
+
+        applyPlayerPowerLevels();
+        return "Level stays 1";
+    }
+
+    private void clearHorizontalInput(int playerIndex) {
+        if (playerIndex < 0 || playerIndex >= player.length || player[playerIndex] == null) {
+            return;
+        }
+
+        player[playerIndex].leftPressed = false;
+        player[playerIndex].rightPressed = false;
+    }
+
+    private void setHorizontalPressed(int playerIndex, boolean rightInput, boolean pressed) {
+        if (playerIndex < 0 || playerIndex >= player.length || !canControlPlayer(player[playerIndex])) {
+            return;
+        }
+
+        boolean moveRight = levelControlsReversed[playerIndex] ? !rightInput : rightInput;
+        if (moveRight) {
+            player[playerIndex].rightPressed = pressed;
+        } else {
+            player[playerIndex].leftPressed = pressed;
+        }
     }
 
     private void startFakeGateDeathSequence(int playerIndex) {
         fakeGateDeathSequenceActive[playerIndex] = true;
         fakeGateDeathHidePlayer[playerIndex] = true;
         fakeGateDeathSequenceTimer[playerIndex] = 0;
-        fakeGateDeathSequenceDeadPlays[playerIndex] = 0;
+        fakeGateDeathSequenceSoundIndex[playerIndex] = 1;
 
-        playSound(eatSound);
+        playSound(eatDoorSound);
 
-        double sequenceDuration = audioDuration(eatSound) + audioDuration(deadSound) * 3.0;
+        double sequenceDuration = fakeGateDeathSequenceDuration();
         player[playerIndex].deadTimer = -Math.max(0, sequenceDuration - 1.0);
     }
 
@@ -1019,20 +1614,41 @@ public class Game extends GameEngine{
 
             fakeGateDeathSequenceTimer[i] += dt;
 
-            double eatDuration = audioDuration(eatSound);
-            double deadDuration = audioDuration(deadSound);
-
-            while (fakeGateDeathSequenceDeadPlays[i] < 3 &&
-                    fakeGateDeathSequenceTimer[i] >= eatDuration + fakeGateDeathSequenceDeadPlays[i] * deadDuration) {
-                playSound(deadSound);
-                fakeGateDeathSequenceDeadPlays[i]++;
+            while (fakeGateDeathSequenceSoundIndex[i] < 6 &&
+                    fakeGateDeathSequenceTimer[i] >= fakeGateDeathSoundStartTime(fakeGateDeathSequenceSoundIndex[i])) {
+                playSound(fakeGateDeathSound(fakeGateDeathSequenceSoundIndex[i]));
+                fakeGateDeathSequenceSoundIndex[i]++;
             }
 
-            if (fakeGateDeathSequenceTimer[i] >= eatDuration + deadDuration * 3.0) {
+            if (fakeGateDeathSequenceTimer[i] >= fakeGateDeathSequenceDuration()) {
                 fakeGateDeathSequenceActive[i] = false;
                 fakeGateDeathHidePlayer[i] = false;
             }
         }
+    }
+
+    private AudioClip fakeGateDeathSound(int sequenceIndex) {
+        return sequenceIndex % 2 == 0 ? eatDoorSound : deadSound;
+    }
+
+    private double fakeGateDeathSoundStartTime(int sequenceIndex) {
+        double time = 0;
+
+        for (int i = 0; i < sequenceIndex; i++) {
+            time += audioDuration(fakeGateDeathSound(i));
+        }
+
+        return time;
+    }
+
+    private double fakeGateDeathSequenceDuration() {
+        double duration = 0;
+
+        for (int i = 0; i < 6; i++) {
+            duration += audioDuration(fakeGateDeathSound(i));
+        }
+
+        return duration;
     }
 
     private void resetFakeGateDeathSequences() {
@@ -1040,7 +1656,7 @@ public class Game extends GameEngine{
             fakeGateDeathSequenceActive[i] = false;
             fakeGateDeathHidePlayer[i] = false;
             fakeGateDeathSequenceTimer[i] = 0;
-            fakeGateDeathSequenceDeadPlays[i] = 0;
+            fakeGateDeathSequenceSoundIndex[i] = 0;
         }
     }
 
@@ -1096,6 +1712,7 @@ public class Game extends GameEngine{
     private void returnToLevelSelect() {
         showAllLevelsComplete = false;
         levelComplete = false;
+        resetLevelBuffs();
         currentLevel = -1;
         showLevelSelect = true;
     }
@@ -1298,6 +1915,12 @@ public class Game extends GameEngine{
     }
 
     private void drawSupplyItem(level5.SupplyItem item) {
+        Image supplyImage = bossSupplyItemImage(item.type);
+        if (supplyImage != null) {
+            drawImage(supplyImage, item.x(), item.y(), BUFF_ITEM_SIZE, BUFF_ITEM_SIZE);
+            return;
+        }
+
         Color color;
         String label;
 
@@ -1320,6 +1943,22 @@ public class Game extends GameEngine{
         changeColor(new Color(255, 255, 255, 220));
         drawCircle(item.x() + 25, item.y() + 25, 20, 3);
         drawCenteredText(item.x(), item.y() + 34, 50, label, "Arial", 24, true, Color.WHITE);
+    }
+
+    private Image bossSupplyItemImage(level5.ItemType type) {
+        if (type == level5.ItemType.SHIELD || type == level5.ItemType.HEAL) {
+            return getBuffFrame(BOSS_SHIELD_BUFF_FRAME);
+        }
+
+        if (type == level5.ItemType.RAGE) {
+            return getBuffFrame(BOSS_RAGE_BUFF_FRAME);
+        }
+
+        if (type == level5.ItemType.MISSILE || type == level5.ItemType.CURSED_MISSILE) {
+            return getBuffFrame(BOSS_MISSILE_BUFF_FRAME);
+        }
+
+        return null;
     }
 
     private void drawLevel5RightPanel(level5 bossLevel) {
@@ -1626,6 +2265,10 @@ public class Game extends GameEngine{
                     drawGate(level.getGate());
                 }
 
+                drawElderlyNpc();
+                drawLevelBuffItems();
+                drawEagle();
+
                 if (!gameOver && !levelComplete && !gamePaused) {
                     boolean showPlayer1 = !level.getGate().hasPlayerReached(1);
                     boolean showPlayer2 = !level.getGate().hasPlayerReached(2);
@@ -1643,6 +2286,10 @@ public class Game extends GameEngine{
 
                 drawInGameHud();
                 drawLevel4Message();
+            }
+
+            if (!gamePaused && !gameOver && !levelComplete) {
+                drawLevelObjectiveOverlay();
             }
 
             if (gamePaused) {
@@ -1718,6 +2365,9 @@ public class Game extends GameEngine{
         Image gateSheet = loadImage("resources/gate.png");
         Image sawSheet = loadImage("resources/saw.png");
         Image portalSheet = loadImage("resources/portal.png");
+        Image elderlySheet = loadImage("resources/elderly.png");
+        Image buffSheet = loadImage("resources/buff.png");
+        Image eagleSheet = loadImage("resources/eagle.png");
 
         maleStay = slicePlayerRow(malePlayerSheet, 0);
         maleLeft = slicePlayerRow(malePlayerSheet, 1);
@@ -1728,6 +2378,9 @@ public class Game extends GameEngine{
         enemyIdleFrames = sliceEnemyRow(enemySheet, 0);
         enemyLeftFrames = sliceEnemyRow(enemySheet, 1);
         bossFrames = sliceBossFrames(bossSheet);
+        elderlyFrames = sliceElderlyFrames(elderlySheet);
+        buffFrames = sliceBuffFrames(buffSheet);
+        eagleFrames = sliceEagleFrames(eagleSheet);
 
         player[0] = new player(maleStay, maleLeft, maleJump);
         player[1] = new player(maleStay, maleLeft, maleJump);
@@ -1754,6 +2407,7 @@ public class Game extends GameEngine{
         sawFrames[1] = subImage(sawSheet, 50, 0, 50, 50);
         pitImage = loadImage("resources/pit.png");
         knifeImage = loadImage("resources/knife.png");
+        carrotImage = loadImage("resources/carrot.png");
         missileImage = loadImage("resources/missile.png");
 
         gameOverImage = loadImage("resources/oneplayersurvive.png");
@@ -1763,9 +2417,15 @@ public class Game extends GameEngine{
         winSound = loadAudio("resources/win.wav");
         transSound = loadAudio("resources/trans.wav");
         eatSound = loadAudio("resources/eat.wav");
+        eatDoorSound = loadAudio("resources/eatDoor.wav");
         enemyDeadSound = loadAudio("resources/enemyDead.wav");
+        eagleDeadSound = loadAudio("resources/eagleDead.wav");
+        bossDeadSound = loadAudio("resources/bossDead.wav");
         missileLockSound = loadAudio("resources/missileLock.wav");
         stage3Sound = loadAudio("resources/stage3.wav");
+        wowSound = loadAudio("resources/wow.wav");
+        buffSound = loadAudio("resources/buff.wav");
+        warnEagleSound = loadAudio("resources/warnEagle.wav");
         menuBgm = loadAudio("resources/bgmStart.wav");
         levelBgms[1] = loadAudio("resources/bgm1.wav");
         levelBgms[2] = loadAudio("resources/bgm2.wav");
@@ -1852,10 +2512,18 @@ public class Game extends GameEngine{
         );
     }
 
+    private void configureCurrentLevelTiming() {
+        if (level instanceof level5) {
+            ((level5)level).setBossExplosionDuration(audioDuration(bossDeadSound));
+        }
+    }
+
     private void restartLevel() {
         gameOver = false;
         levelComplete = false;
         showAllLevelsComplete = false;
+        levelElapsedTime = 0;
+        resetLevelBuffs();
         resetLevelStats();
         resetFakeGateDeathSequences();
 
@@ -1871,6 +2539,8 @@ public class Game extends GameEngine{
         else if (currentLevel == 5) {
             level = new level5(loadImage("resources/bg1.png"));
         }
+
+        configureCurrentLevelTiming();
 
         player[0].dead = false;
         player[1].dead = false;
@@ -1907,12 +2577,18 @@ public class Game extends GameEngine{
                 enemyIdleFrames,
                 enemyLeftFrames
         );
+        setupElderlyNpc();
+        setupEagle();
+        setupLevelBuffItems();
+        startLevelObjectivePause();
     }
 
     private void nextLevel() {
         gameOver = false;
         levelComplete = false;
         showAllLevelsComplete = false;
+        levelElapsedTime = 0;
+        resetLevelBuffs();
         resetLevelStats();
         resetFakeGateDeathSequences();
 
@@ -1947,6 +2623,8 @@ public class Game extends GameEngine{
             level = new level5(loadImage("resources/bg1.png"));
         }
 
+        configureCurrentLevelTiming();
+
         player[0].dead = false;
         player[1].dead = false;
         player[0].trappedInFakeGate = false;
@@ -1983,6 +2661,10 @@ public class Game extends GameEngine{
                 enemyIdleFrames,
                 enemyLeftFrames
         );
+        setupElderlyNpc();
+        setupEagle();
+        setupLevelBuffItems();
+        startLevelObjectivePause();
     }
     private void updateLevelButtons() {
         for (int i = 0; i < levelButtons.length; i++) {
@@ -1995,6 +2677,8 @@ public class Game extends GameEngine{
         gameOver = false;
         levelComplete = false;
         showAllLevelsComplete = false;
+        levelElapsedTime = 0;
+        resetLevelBuffs();
         resetLevelStats();
         resetFakeGateDeathSequences();
 
@@ -2011,6 +2695,8 @@ public class Game extends GameEngine{
             level = new level5(loadImage("resources/bg1.png"));
         }
 
+        configureCurrentLevelTiming();
+
         player[0].dead = false;
         player[1].dead = false;
         player[0].trappedInFakeGate = false;
@@ -2046,6 +2732,10 @@ public class Game extends GameEngine{
                 enemyIdleFrames,
                 enemyLeftFrames
         );
+        setupElderlyNpc();
+        setupEagle();
+        setupLevelBuffItems();
+        startLevelObjectivePause();
     }
 
     @Override
@@ -2157,6 +2847,10 @@ public class Game extends GameEngine{
                 return;
             }
 
+            if (levelObjectiveTimer > 0) {
+                return;
+            }
+
             if (currentLevel == 5 && level instanceof level5) {
                 level5 bossLevel = (level5)level;
                 boolean controlsReversed = bossLevel.areControlsReversed();
@@ -2194,6 +2888,16 @@ public class Game extends GameEngine{
             }
 
             if (currentLevel >= 1 && currentLevel <= 4) {
+                if (event.getKeyCode() == ELDERLY_P1_KEY) {
+                    tryInteractWithElderly(1);
+                    return;
+                }
+
+                if (event.getKeyCode() == ELDERLY_P2_KEY) {
+                    tryInteractWithElderly(2);
+                    return;
+                }
+
                 if (event.getKeyCode() == KeyEvent.VK_F) {
                     firePlayerKnife(1);
                 }
@@ -2205,13 +2909,13 @@ public class Game extends GameEngine{
 
             if(event.getKeyCode() == KeyEvent.VK_LEFT){
                 if (canControlPlayer(player[1])) {
-                    player[1].leftPressed = true;
+                    setHorizontalPressed(1, false, true);
                 }
             }
 
             if(event.getKeyCode() == KeyEvent.VK_RIGHT){
                 if (canControlPlayer(player[1])) {
-                    player[1].rightPressed = true;
+                    setHorizontalPressed(1, true, true);
                 }
             }
 
@@ -2223,13 +2927,13 @@ public class Game extends GameEngine{
 
             if(event.getKeyCode() == KeyEvent.VK_A){
                 if (canControlPlayer(player[0])) {
-                    player[0].leftPressed = true;
+                    setHorizontalPressed(0, false, true);
                 }
             }
 
             if(event.getKeyCode() == KeyEvent.VK_D){
                 if (canControlPlayer(player[0])) {
-                    player[0].rightPressed = true;
+                    setHorizontalPressed(0, true, true);
                 }
             }
 
@@ -2264,22 +2968,22 @@ public class Game extends GameEngine{
         }
 
         if (event.getKeyCode() == KeyEvent.VK_LEFT) {
-            player[1].leftPressed = false;
+            setHorizontalPressed(1, false, false);
         }
 
         if (event.getKeyCode() == KeyEvent.VK_RIGHT) {
-            player[1].rightPressed = false;
+            setHorizontalPressed(1, true, false);
         }
 
         if (event.getKeyCode() == KeyEvent.VK_UP) {
             player[1].jumpPressed = false;
         }
         if (event.getKeyCode() == KeyEvent.VK_A) {
-            player[0].leftPressed = false;
+            setHorizontalPressed(0, false, false);
         }
 
         if (event.getKeyCode() == KeyEvent.VK_D) {
-            player[0].rightPressed = false;
+            setHorizontalPressed(0, true, false);
         }
 
         if (event.getKeyCode() == KeyEvent.VK_W) {
