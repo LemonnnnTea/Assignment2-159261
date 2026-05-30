@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 import javax.sound.sampled.FloatControl;
+import javax.sound.sampled.LineEvent;
 
 public class Game extends GameEngine{
 
@@ -78,6 +79,47 @@ public class Game extends GameEngine{
     private static final Color COLOR_MUTED_TEXT = new Color(184, 194, 214);
     private static final Color COLOR_GOOD = new Color(50, 170, 100);
     private static final Color COLOR_LOCKED = new Color(70, 78, 96);
+    private static final String[] LEVEL_BRIEFING_TITLES = {
+            "",
+            "Home Was Taken",
+            "Through the Factory Line",
+            "Above the Broken Yard",
+            "The Records in the Tower",
+            "The Electric Bike King"
+    };
+    private static final String[][] LEVEL_BRIEFING_LINES = {
+            {},
+            {
+                    "Humans tore down the pigs' home to expand a delivery route.",
+                    "Their friends were taken away and sold as meat rolls and menzi.",
+                    "The two survivors start forward, looking for the people who ordered it."
+            },
+            {
+                    "The trail leads into an old processing plant on the edge of town.",
+                    "Knives, saws, and broken floors mark the place where their friends vanished.",
+                    "They push through the line, carrying grief as fuel for revenge."
+            },
+            {
+                    "Beyond the plant is a fenced logistics yard filled with crates and alarms.",
+                    "Security watches from above while the pigs search for shipment records.",
+                    "Every shortcut matters, because the humans are already moving the evidence."
+            },
+            {
+                    "The records point to a downtown tower owned by the delivery syndicate.",
+                    "Fake doors and traps protect the contracts that ruined their village.",
+                    "At the top, one true exit leads to the name behind the orders."
+            },
+            {
+                    "The name is the Electric Bike King, owner of the routes and factories.",
+                    "P1 gathers supplies through the storage grid while P2 faces his weapons.",
+                    "This fight is for their home, their friends, and every pig still trapped."
+            }
+    };
+    private static final String[] BOSS_CALLBACK_LINES = {
+            "The Electric Bike King falls, and his contracts spill across the floor.",
+            "The papers prove he ordered the village cleared and the pigs processed.",
+            "The survivors carry the evidence out. Now the higher score decides who led the revenge."
+    };
 
     level level;
     int currentLevel;
@@ -107,6 +149,7 @@ public class Game extends GameEngine{
     AudioClip transSound;
     AudioClip eatSound;
     AudioClip eatDoorSound;
+    AudioClip doorSound;
     AudioClip enemyDeadSound;
     AudioClip eagleDeadSound;
     AudioClip bossDeadSound;
@@ -135,6 +178,10 @@ public class Game extends GameEngine{
     double levelObjectiveTimer = 0;
     boolean showAllLevelsComplete = false;
     double allLevelsCompleteTimer = 0;
+    boolean[] levelBriefingSeen = new boolean[LAST_IMPLEMENTED_LEVEL + 1];
+    boolean showLevelBriefing = false;
+    int activeBriefingLevel = 0;
+    boolean showBossStoryCallback = false;
 
     int maxUnlockedLevel = LAST_IMPLEMENTED_LEVEL;
     int[] playerScores = new int[2];
@@ -226,6 +273,7 @@ public class Game extends GameEngine{
     boolean[] fakeGateDeathHidePlayer = new boolean[2];
     double[] fakeGateDeathSequenceTimer = new double[2];
     int[] fakeGateDeathSequenceSoundIndex = new int[2];
+    ArrayList<Clip> fakeGateSoundClips = new ArrayList<>();
 
     public static void main(String[] args) {
         createGame(new Game(), 60);
@@ -1065,10 +1113,56 @@ public class Game extends GameEngine{
         drawCenteredText(560, 535, 800, objective, "Arial", 36, true, COLOR_TEXT);
     }
 
+    private void drawLevelBriefingOverlay() {
+        int levelNumber = activeBriefingLevel;
+        if (levelNumber < 1 || levelNumber > LAST_IMPLEMENTED_LEVEL) {
+            levelNumber = currentLevel;
+        }
+
+        drawStoryOverlay(
+                "LEVEL " + levelNumber + " BRIEFING",
+                LEVEL_BRIEFING_TITLES[levelNumber],
+                LEVEL_BRIEFING_LINES[levelNumber],
+                "SPACE / ENTER: continue"
+        );
+    }
+
+    private void drawBossStoryCallbackOverlay() {
+        drawStoryOverlay(
+                "FINAL STORY CALLBACK",
+                "The Orders Are Exposed",
+                BOSS_CALLBACK_LINES,
+                "SPACE / ENTER: show the result"
+        );
+    }
+
+    private void drawStoryOverlay(String label, String title, String[] lines, String prompt) {
+        drawScrim();
+        drawPanel(430, 210, 1060, 660);
+
+        drawCenteredText(430, 300, 1060, label, "Dialog", 26, true, COLOR_ACCENT_2);
+        drawCenteredText(430, 370, 1060, title, "Dialog", 44, true, COLOR_TEXT);
+
+        double lineY = 470;
+        for (String line : lines) {
+            drawCenteredText(500, lineY, 920, line, "Dialog", 29, false, COLOR_TEXT);
+            lineY += 58;
+        }
+
+        fillRoundRect(710, 760, 500, 62, 8, new Color(35, 45, 66));
+        drawRoundRect(710, 760, 500, 62, 8, 2, COLOR_ACCENT);
+        drawCenteredText(710, 800, 500, prompt, "Dialog", 24, true, COLOR_TEXT);
+    }
+
     @Override
     public void update(double dt) {
         dt = Math.min(dt, MAX_PHYSICS_DT);
         updateBackgroundMusic();
+
+        if (hasActiveStoryOverlay()) {
+            updateMissileLockSound(false, dt);
+            return;
+        }
 
         if (!(currentLevel == 5 && level instanceof level5 && !gameOver && !levelComplete && !gamePaused)) {
             updateMissileLockSound(false, dt);
@@ -1082,6 +1176,10 @@ public class Game extends GameEngine{
         if (currentLevel >= 1 && currentLevel <= 5 && !gameOver && !levelComplete && !gamePaused) {
             boolean player1WasDead = player[0].dead;
             boolean player2WasDead = player[1].dead;
+            boolean player1WasInGate = player[0].reachedGate;
+            boolean player2WasInGate = player[1].reachedGate;
+            boolean player1WasTrappedInFakeGate = player[0].trappedInFakeGate;
+            boolean player2WasTrappedInFakeGate = player[1].trappedInFakeGate;
 
             if (currentLevel <= 4) {
                 levelElapsedTime += dt;
@@ -1089,6 +1187,16 @@ public class Game extends GameEngine{
             }
 
             level.update(dt);
+
+            if ((!player1WasInGate && player[0].reachedGate) ||
+                    (!player2WasInGate && player[1].reachedGate)) {
+                playSound(doorSound);
+            }
+
+            if ((!player1WasTrappedInFakeGate && player[0].trappedInFakeGate) ||
+                    (!player2WasTrappedInFakeGate && player[1].trappedInFakeGate)) {
+                playFakeGateSound(doorSound);
+            }
 
             updateEagle(dt);
 
@@ -1132,7 +1240,7 @@ public class Game extends GameEngine{
 
                 if (bossLevel.isLevelComplete()) {
                     updateMissileLockSound(false, dt);
-                    completeLevel(1);
+                    startBossStoryCallback();
                 }
 
                 return;
@@ -1190,6 +1298,59 @@ public class Game extends GameEngine{
         }
 
         return 0;
+    }
+
+    private boolean hasActiveStoryOverlay() {
+        return showLevelBriefing || showBossStoryCallback;
+    }
+
+    private boolean isStoryAdvanceKey(KeyEvent event) {
+        return event.getKeyCode() == KeyEvent.VK_SPACE ||
+                event.getKeyCode() == KeyEvent.VK_ENTER;
+    }
+
+    private void clearStoryOverlayState() {
+        showLevelBriefing = false;
+        activeBriefingLevel = 0;
+        showBossStoryCallback = false;
+    }
+
+    private void startLevelIntro() {
+        if (currentLevel >= 1 && currentLevel <= LAST_IMPLEMENTED_LEVEL &&
+                !levelBriefingSeen[currentLevel]) {
+            levelBriefingSeen[currentLevel] = true;
+            showLevelBriefing = true;
+            activeBriefingLevel = currentLevel;
+            levelObjectiveTimer = 0;
+            return;
+        }
+
+        showLevelBriefing = false;
+        activeBriefingLevel = 0;
+        startLevelObjectivePause();
+    }
+
+    private void advanceStoryOverlay() {
+        if (showLevelBriefing) {
+            showLevelBriefing = false;
+            activeBriefingLevel = 0;
+            startLevelObjectivePause();
+            return;
+        }
+
+        if (showBossStoryCallback) {
+            showBossStoryCallback = false;
+            completeLevel(1);
+        }
+    }
+
+    private void startBossStoryCallback() {
+        if (showBossStoryCallback || levelComplete) {
+            return;
+        }
+
+        showBossStoryCallback = true;
+        levelObjectiveTimer = 0;
     }
 
     private void completeLevel(int playerNumber) {
@@ -1610,13 +1771,18 @@ public class Game extends GameEngine{
         fakeGateDeathSequenceTimer[playerIndex] = 0;
         fakeGateDeathSequenceSoundIndex[playerIndex] = 1;
 
-        playSound(eatDoorSound);
+        playFakeGateSound(eatDoorSound);
 
         double sequenceDuration = fakeGateDeathSequenceDuration();
         player[playerIndex].deadTimer = -Math.max(0, sequenceDuration - 1.0);
     }
 
     private void updateFakeGateDeathSequences(double dt) {
+        if (currentLevel < 1 || currentLevel > 4) {
+            resetFakeGateDeathSequences();
+            return;
+        }
+
         for (int i = 0; i < fakeGateDeathSequenceActive.length; i++) {
             if (!fakeGateDeathSequenceActive[i]) {
                 continue;
@@ -1626,7 +1792,7 @@ public class Game extends GameEngine{
 
             while (fakeGateDeathSequenceSoundIndex[i] < 6 &&
                     fakeGateDeathSequenceTimer[i] >= fakeGateDeathSoundStartTime(fakeGateDeathSequenceSoundIndex[i])) {
-                playSound(fakeGateDeathSound(fakeGateDeathSequenceSoundIndex[i]));
+                playFakeGateSound(fakeGateDeathSound(fakeGateDeathSequenceSoundIndex[i]));
                 fakeGateDeathSequenceSoundIndex[i]++;
             }
 
@@ -1668,6 +1834,8 @@ public class Game extends GameEngine{
             fakeGateDeathSequenceTimer[i] = 0;
             fakeGateDeathSequenceSoundIndex[i] = 0;
         }
+
+        stopFakeGateSounds();
     }
 
     private double audioDuration(AudioClip clip) {
@@ -1706,14 +1874,24 @@ public class Game extends GameEngine{
             return "Final Result: Draw";
         }
 
-        return "Final Winner: P" + finalWinner;
+        return "Winner: P" + finalWinner;
+    }
+
+    private String finalLoserText() {
+        int finalWinner = getFinalWinner();
+
+        if (finalWinner == 0) {
+            return "Loser: nobody";
+        }
+
+        return "Loser: P" + (finalWinner == 1 ? 2 : 1);
     }
 
     private String finalReasonText() {
         int finalWinner = getFinalWinner();
 
         if (finalWinner == 0) {
-            return "Both players finished with the same score.";
+            return "Both players finished with the same score, so the doors must apologize instead.";
         }
 
         return "P" + finalWinner + " has the higher score.";
@@ -1722,6 +1900,9 @@ public class Game extends GameEngine{
     private void returnToLevelSelect() {
         showAllLevelsComplete = false;
         levelComplete = false;
+        clearStoryOverlayState();
+        resetFakeGateDeathSequences();
+        stopMissileLockClip();
         resetLevelBuffs();
         currentLevel = -1;
         showLevelSelect = true;
@@ -1729,6 +1910,54 @@ public class Game extends GameEngine{
 
     private void playSound(AudioClip sound) {
         playAudio(sound, masterVolumeGain);
+    }
+
+    private void playFakeGateSound(AudioClip sound) {
+        if (sound == null) {
+            return;
+        }
+
+        try {
+            Clip clip = AudioSystem.getClip();
+            clip.open(sound.getAudioFormat(), sound.getData(), 0, (int)sound.getBufferSize());
+            updateClipVolume(clip);
+
+            synchronized (fakeGateSoundClips) {
+                fakeGateSoundClips.add(clip);
+            }
+
+            clip.addLineListener(event -> {
+                if (event.getType() == LineEvent.Type.STOP || event.getType() == LineEvent.Type.CLOSE) {
+                    synchronized (fakeGateSoundClips) {
+                        fakeGateSoundClips.remove(clip);
+                    }
+
+                    if (clip.isOpen()) {
+                        clip.close();
+                    }
+                }
+            });
+
+            clip.start();
+        } catch (Exception exception) {
+            System.out.println("Error playing fake gate Audio Clip\n");
+        }
+    }
+
+    private void stopFakeGateSounds() {
+        ArrayList<Clip> clipsToStop;
+
+        synchronized (fakeGateSoundClips) {
+            clipsToStop = new ArrayList<>(fakeGateSoundClips);
+            fakeGateSoundClips.clear();
+        }
+
+        for (Clip clip : clipsToStop) {
+            if (clip != null) {
+                clip.stop();
+                clip.close();
+            }
+        }
     }
 
     private AudioClip getBgmForCurrentScreen() {
@@ -2206,20 +2435,21 @@ public class Game extends GameEngine{
     private void drawFinalSettlementScreen() {
         drawCenteredText(520, 310, 880, "FINAL RESULT", "Arial", 58, true, new Color(255, 215, 0));
         drawCenteredText(520, 385, 880, finalWinnerText(), "Arial", 40, true, COLOR_TEXT);
-        drawCenteredText(520, 440, 880, finalReasonText(), "Arial", 26, false, COLOR_MUTED_TEXT);
+        drawCenteredText(520, 435, 880, finalLoserText(), "Arial", 34, true, COLOR_MUTED_TEXT);
+        drawCenteredText(520, 480, 880, finalReasonText(), "Arial", 24, false, COLOR_MUTED_TEXT);
 
-        fillRoundRect(650, 500, 280, 120, 8, new Color(24, 32, 48));
-        drawRoundRect(650, 500, 280, 120, 8, 2, new Color(105, 126, 160));
-        fillRoundRect(990, 500, 280, 120, 8, new Color(24, 32, 48));
-        drawRoundRect(990, 500, 280, 120, 8, 2, new Color(105, 126, 160));
+        fillRoundRect(650, 535, 280, 120, 8, new Color(24, 32, 48));
+        drawRoundRect(650, 535, 280, 120, 8, 2, new Color(105, 126, 160));
+        fillRoundRect(990, 535, 280, 120, 8, new Color(24, 32, 48));
+        drawRoundRect(990, 535, 280, 120, 8, 2, new Color(105, 126, 160));
 
-        drawCenteredText(650, 545, 280, "P1", "Arial", 28, true, COLOR_TEXT);
-        drawCenteredText(650, 595, 280, String.valueOf(playerScores[0]), "Arial", 40, true, COLOR_ACCENT);
-        drawCenteredText(990, 545, 280, "P2", "Arial", 28, true, COLOR_TEXT);
-        drawCenteredText(990, 595, 280, String.valueOf(playerScores[1]), "Arial", 40, true, COLOR_ACCENT_2);
+        drawCenteredText(650, 580, 280, "P1", "Arial", 28, true, COLOR_TEXT);
+        drawCenteredText(650, 630, 280, String.valueOf(playerScores[0]), "Arial", 40, true, COLOR_ACCENT);
+        drawCenteredText(990, 580, 280, "P2", "Arial", 28, true, COLOR_TEXT);
+        drawCenteredText(990, 630, 280, String.valueOf(playerScores[1]), "Arial", 40, true, COLOR_ACCENT_2);
 
-        drawCenteredText(520, 690, 880, "Boss cleared. Higher score wins.", "Arial", 26, false, COLOR_TEXT);
-        drawCenteredText(520, 750, 880, "SPACE: level select    R: replay boss    ESC: level select", "Arial", 24, false, COLOR_TEXT);
+        drawCenteredText(520, 715, 880, "Boss cleared. Higher score wins.", "Arial", 26, false, COLOR_TEXT);
+        drawCenteredText(520, 775, 880, "SPACE: level select    R: replay boss    ESC: level select", "Arial", 24, false, COLOR_TEXT);
     }
 
     @Override
@@ -2302,8 +2532,16 @@ public class Game extends GameEngine{
                 drawLevel4Message();
             }
 
-            if (!gamePaused && !gameOver && !levelComplete) {
+            if (!gamePaused && !gameOver && !levelComplete && !hasActiveStoryOverlay()) {
                 drawLevelObjectiveOverlay();
+            }
+
+            if (showLevelBriefing) {
+                drawLevelBriefingOverlay();
+            }
+
+            if (showBossStoryCallback) {
+                drawBossStoryCallbackOverlay();
             }
 
             if (gamePaused) {
@@ -2432,6 +2670,7 @@ public class Game extends GameEngine{
         transSound = loadAudio("resources/trans.wav");
         eatSound = loadAudio("resources/eat.wav");
         eatDoorSound = loadAudio("resources/eatDoor.wav");
+        doorSound = loadAudio("resources/door.wav");
         enemyDeadSound = loadAudio("resources/enemyDead.wav");
         eagleDeadSound = loadAudio("resources/eagleDead.wav");
         bossDeadSound = loadAudio("resources/bossDead.wav");
@@ -2536,6 +2775,7 @@ public class Game extends GameEngine{
         gameOver = false;
         levelComplete = false;
         showAllLevelsComplete = false;
+        clearStoryOverlayState();
         levelElapsedTime = 0;
         resetLevelBuffs();
         resetLevelStats();
@@ -2594,13 +2834,14 @@ public class Game extends GameEngine{
         setupElderlyNpc();
         setupEagle();
         setupLevelBuffItems();
-        startLevelObjectivePause();
+        startLevelIntro();
     }
 
     private void nextLevel() {
         gameOver = false;
         levelComplete = false;
         showAllLevelsComplete = false;
+        clearStoryOverlayState();
         levelElapsedTime = 0;
         resetLevelBuffs();
         resetLevelStats();
@@ -2678,7 +2919,7 @@ public class Game extends GameEngine{
         setupElderlyNpc();
         setupEagle();
         setupLevelBuffItems();
-        startLevelObjectivePause();
+        startLevelIntro();
     }
     private void updateLevelButtons() {
         for (int i = 0; i < levelButtons.length; i++) {
@@ -2691,6 +2932,7 @@ public class Game extends GameEngine{
         gameOver = false;
         levelComplete = false;
         showAllLevelsComplete = false;
+        clearStoryOverlayState();
         levelElapsedTime = 0;
         resetLevelBuffs();
         resetLevelStats();
@@ -2749,7 +2991,7 @@ public class Game extends GameEngine{
         setupElderlyNpc();
         setupEagle();
         setupLevelBuffItems();
-        startLevelObjectivePause();
+        startLevelIntro();
     }
 
     @Override
@@ -2813,6 +3055,13 @@ public class Game extends GameEngine{
 
 
         else{
+            if (hasActiveStoryOverlay()) {
+                if (isStoryAdvanceKey(event)) {
+                    advanceStoryOverlay();
+                }
+                return;
+            }
+
             if (gamePaused) {
                 if (event.getKeyCode() == KeyEvent.VK_ESCAPE) {
                     if (showPauseHelp) {
@@ -2965,6 +3214,10 @@ public class Game extends GameEngine{
 
     @Override
     public void keyReleased(KeyEvent event) {
+
+        if (hasActiveStoryOverlay()) {
+            return;
+        }
 
         if (currentLevel == 5 && level instanceof level5) {
             level5 bossLevel = (level5)level;
@@ -3163,6 +3416,8 @@ public class Game extends GameEngine{
                     loadSelectedLevel(levelButtons[hoveredLevelButton].levelNumber);
                 }
             }
+        } else if (currentLevel >= 1 && currentLevel <= 5 && hasActiveStoryOverlay()) {
+            advanceStoryOverlay();
         }
         else if (currentLevel >= 1 && currentLevel <= 5 && gamePaused && !showPauseHelp) {
             if (isMouseInside(PAUSE_BUTTON_X, pauseButtonY(0), PAUSE_BUTTON_W, PAUSE_BUTTON_H)) {
@@ -3171,6 +3426,8 @@ public class Game extends GameEngine{
 
             if (isMouseInside(PAUSE_BUTTON_X, pauseButtonY(1), PAUSE_BUTTON_W, PAUSE_BUTTON_H)) {
                 gamePaused = false;
+                resetFakeGateDeathSequences();
+                stopMissileLockClip();
                 showLevelSelect = true;
                 currentLevel = -1;
             }
@@ -3181,6 +3438,8 @@ public class Game extends GameEngine{
 
             if (isMouseInside(PAUSE_BUTTON_X, pauseButtonY(3), PAUSE_BUTTON_W, PAUSE_BUTTON_H)) {
                 gamePaused = false;
+                resetFakeGateDeathSequences();
+                stopMissileLockClip();
                 currentLevel = 0;
                 showLevelSelect = false;
             }
@@ -3191,6 +3450,10 @@ public class Game extends GameEngine{
 
     @Override
     public void mouseReleased(MouseEvent event) {
+        if (hasActiveStoryOverlay()) {
+            return;
+        }
+
         if (currentLevel == 5 && level instanceof level5) {
             ((level5)level).setJetpackPressed(false);
         }

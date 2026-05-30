@@ -25,7 +25,7 @@ public class Gate {
 
     double timer = 0;
 
-    double animationTime = 1.0;
+    double animationTime = 1.5;
     double frameTime;
 
     public Gate(double x,

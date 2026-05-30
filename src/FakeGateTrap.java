@@ -1,7 +1,7 @@
 import java.awt.*;
 
 public class FakeGateTrap extends Trap {
-    private static final double ANIMATION_TIME = 1.0;
+    private static final double ANIMATION_TIME = 1.5;
 
     private final Image[] doorFrames;
     private final double frameTime;
