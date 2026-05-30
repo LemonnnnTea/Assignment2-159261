@@ -17,11 +17,14 @@ public class Game extends GameEngine{
     private static final int MIN_POWER_LEVEL = 1;
     private static final int MAX_POWER_LEVEL = 10;
     private static final int BUFF_ITEM_SIZE = 50;
+    private static final int BUFF_FRAME_SIZE = 100;
+    private static final int BUFF_FRAMES_PER_ROW = 6;
     private static final int FRONT_LEVEL_UP_BUFF_FRAME = 0;
     private static final int FRONT_SPEED_BUFF_FRAME = 1;
     private static final int BOSS_SHIELD_BUFF_FRAME = 2;
     private static final int BOSS_RAGE_BUFF_FRAME = 3;
     private static final int BOSS_MISSILE_BUFF_FRAME = 4;
+    private static final int BOSS_HEAL_BUFF_FRAME = 5;
     private static final float BGM_VOLUME_OFFSET = -6.0206f;
     private static final double LEVEL_OBJECTIVE_DURATION = 1.0;
     private static final double ELDERLY_X = 220;
@@ -442,11 +445,18 @@ public class Game extends GameEngine{
             return new Image[0];
         }
 
-        int spriteSize = 100;
-        Image[] frames = new Image[5];
+        int sheetWidth = sheet.getWidth(null);
+        int sheetHeight = sheet.getHeight(null);
+        int columns = Math.min(BUFF_FRAMES_PER_ROW, sheetWidth / BUFF_FRAME_SIZE);
+        int rows = sheetHeight / BUFF_FRAME_SIZE;
+        Image[] frames = new Image[columns * rows];
 
-        for (int i = 0; i < frames.length; i++) {
-            frames[i] = subImage(sheet, i * spriteSize, 0, spriteSize, spriteSize);
+        for (int row = 0; row < rows; row++) {
+            for (int col = 0; col < columns; col++) {
+                int index = row * columns + col;
+                frames[index] = subImage(sheet, col * BUFF_FRAME_SIZE, row * BUFF_FRAME_SIZE,
+                        BUFF_FRAME_SIZE, BUFF_FRAME_SIZE);
+            }
         }
 
         return frames;
@@ -1946,8 +1956,12 @@ public class Game extends GameEngine{
     }
 
     private Image bossSupplyItemImage(level5.ItemType type) {
-        if (type == level5.ItemType.SHIELD || type == level5.ItemType.HEAL) {
+        if (type == level5.ItemType.SHIELD) {
             return getBuffFrame(BOSS_SHIELD_BUFF_FRAME);
+        }
+
+        if (type == level5.ItemType.HEAL) {
+            return getBuffFrame(BOSS_HEAL_BUFF_FRAME);
         }
 
         if (type == level5.ItemType.RAGE) {
